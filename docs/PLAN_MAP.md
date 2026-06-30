@@ -17,7 +17,7 @@
 
 | 计划 | 状态 | 当前阶段 | 依赖 | 证据 |
 |---|---|---|---|---|
-| [ModelPad v1 实施计划](plans/modelpad-v1.md) | 实施中 | 阶段 1：项目骨架和配置模型 | - | [Step 0 证据](plans/modelpad-v1.md#step-0-证据) |
+| [ModelPad v1 实施计划](plans/modelpad-v1.md) | 实施中 | 阶段 2：进程托管、状态机、健康检查和日志缓冲 | - | [Step 0 证据](plans/modelpad-v1.md#step-0-证据) |
 
 允许状态：`候选`、`设计中`、`待实施`、`实施中`、`已完成`、`已替代`、`已合并`、`已废弃`。
 

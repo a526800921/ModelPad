@@ -123,14 +123,13 @@ func loadReturnsDefaultWhenFileNotExists() throws {
 
 // MARK: - 原子写入
 
-@Test("原子写入后临时文件不存在")
+@Test("原子写入后临时文件不存在，目标文件始终存在")
 func atomicWriteNoTempFileLeftBehind() throws {
     let store = makeTestStore()
 
     let config = AppConfig.default
     try store.save(config)
 
-    // 临时文件不应存在（通过 baseDirectory 查找）
     let dirContents = try FileManager.default.contentsOfDirectory(
         at: store.baseDirectory,
         includingPropertiesForKeys: nil
@@ -138,9 +137,52 @@ func atomicWriteNoTempFileLeftBehind() throws {
     let tempFiles = dirContents.filter { $0.lastPathComponent.hasSuffix(".tmp") }
     #expect(tempFiles.isEmpty, "原子写入后不应残留 .tmp 文件")
 
-    // 目标文件应存在
     let configFiles = dirContents.filter { $0.lastPathComponent == "config.json" }
     #expect(configFiles.count == 1, "config.json 应存在")
+}
+
+@Test("首次创建后 target 文件存在且内容完整")
+func firstSaveCreatesTargetFile() throws {
+    let store = makeTestStore()
+
+    let model = ModelConfig(name: "M", engine: .custom, command: "echo hi")
+    let config = AppConfig(version: 1, api: .default, models: [model])
+    try store.save(config)
+
+    // 验证 target 文件存在
+    let configFile = store.baseDirectory.appendingPathComponent("config.json")
+    #expect(FileManager.default.fileExists(atPath: configFile.path),
+            "首次保存后 config.json 应存在")
+
+    // 验证内容可读且正确
+    let loaded = try store.load()
+    #expect(loaded.models.count == 1)
+    #expect(loaded.models[0].name == "M")
+}
+
+@Test("覆盖已有配置后 target 文件始终存在且内容被替换")
+func overwritePreservesTargetFile() throws {
+    let store = makeTestStore()
+
+    // 第一次写入
+    let m1 = ModelConfig(name: "First", engine: .ollama, command: "cmd1")
+    try store.save(AppConfig(version: 1, api: .default, models: [m1]))
+
+    let configFile = store.baseDirectory.appendingPathComponent("config.json")
+    #expect(FileManager.default.fileExists(atPath: configFile.path))
+
+    // 第二次覆盖写入
+    let m2 = ModelConfig(name: "Second", engine: .vllm, command: "cmd2")
+    try store.save(AppConfig(version: 1, api: .default, models: [m2]))
+
+    // target 文件必须始终存在
+    #expect(FileManager.default.fileExists(atPath: configFile.path),
+            "覆盖写入后 config.json 必须存在，不能有缺失窗口")
+
+    // 内容必须是第二次写入的
+    let loaded = try store.load()
+    #expect(loaded.models.count == 1)
+    #expect(loaded.models[0].name == "Second")
 }
 
 @Test("两次连续保存配置正确")
@@ -159,6 +201,37 @@ func twoConsecutiveSaves() throws {
     let loaded = try store.load()
     #expect(loaded.models.count == 1)
     #expect(loaded.models[0].name == "M2")
+}
+
+@Test("replaceItemAt 原子替换后文件内容完整，无截断")
+func atomicReplaceProducesCompleteFile() throws {
+    let store = makeTestStore()
+
+    // 创建一个有内容的初始配置
+    let initial = AppConfig.default
+    try store.save(initial)
+
+    // 覆盖一个较大的配置（多个模型，验证内容完整性）
+    var models: [ModelConfig] = []
+    for i in 0..<10 {
+        models.append(ModelConfig(
+            name: "Model-\(i)",
+            engine: .custom,
+            command: "echo model-\(i)-with-some-extra-text-to-make-it-bigger"
+        ))
+    }
+    let largeConfig = AppConfig(version: 1, api: .default, models: models)
+    try store.save(largeConfig)
+
+    // 读取回来验证完整性
+    let loaded = try store.load()
+    #expect(loaded.models.count == 10)
+    for i in 0..<10 {
+        #expect(loaded.models[i].name == "Model-\(i)")
+    }
+
+    // 确认不会是空文件或残留旧内容
+    #expect(loaded.models[0].name != "M2")
 }
 
 // MARK: - 损坏 JSON 备份

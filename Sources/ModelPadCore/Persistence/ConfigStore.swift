@@ -112,14 +112,23 @@ public final class ConfigStore: Sendable {
         let tempURL = tempFileURL
         let targetURL = configFileURL
 
-        // 先写临时文件（不使用 .atomic，因为后续会手动 rename）
+        // 先写临时文件（不使用 .atomic，后续用 replaceItemAt 做原子替换）
         try data.write(to: tempURL)
 
-        // 再 rename 覆盖目标文件
-        if FileManager.default.fileExists(atPath: targetURL.path) {
-            try FileManager.default.removeItem(at: targetURL)
+        // 原子替换目标文件：使用 replaceItemAt 确保目标文件不会短暂缺失。
+        // 如果目标存在则原地替换；不存在则移动。
+        do {
+            try FileManager.default.replaceItem(
+                at: targetURL,
+                withItemAt: tempURL,
+                backupItemName: nil,
+                options: [],
+                resultingItemURL: nil
+            )
+        } catch let error as CocoaError where error.code == .fileNoSuchFile {
+            // 目标文件尚不存在，直接移动
+            try FileManager.default.moveItem(at: tempURL, to: targetURL)
         }
-        try FileManager.default.moveItem(at: tempURL, to: targetURL)
     }
 
     // MARK: - 损坏备份
