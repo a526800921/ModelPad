@@ -248,14 +248,14 @@ JSON 读失败时保留损坏文件备份，例如 `config.json.bak`，然后启
 |---|---|---|---|---|
 | 阶段 0 | 治理初始化和基线固定 | 无 | Step 0 证据存在，治理文档通过检查 | 已完成 |
 | 阶段 1 | 项目骨架、数据模型和配置持久化 | 阶段 0 完成 | Swift 测试覆盖 JSON 编解码、默认配置、原子写入、损坏文件备份 | 已完成 |
-| 阶段 2 | 进程托管、状态机、健康检查和日志缓冲 | 阶段 1 完成 | 使用短生命周期 fixture 进程验证启动、停止、异常退出、TCP 健康检查、日志截断 | 实施中 |
+| 阶段 2 | 进程托管、状态机、健康检查和日志缓冲 | 阶段 1 完成 | 使用短生命周期 fixture 进程验证启动、停止、异常退出、TCP 健康检查、日志截断 | 已完成 |
 | 阶段 3 | 本地 HTTP API | 阶段 2 完成 | API 契约测试覆盖允许接口、禁止配置写入接口、敏感字段不泄露 | 候选 |
 | 阶段 4 | SwiftUI 主面板和菜单栏打开面板 | 阶段 3 完成 | 手动验收 UI 工作流；必要时补充 ViewModel 单元测试 | 候选 |
 | 阶段 5 | 集成验收和打包前收口 | 阶段 4 完成 | 端到端验收清单通过，文档和 `PLAN_MAP.md` 同步 | 候选 |
 
 ## 当前阶段
 
-当前阶段：阶段 2，进程托管、状态机、健康检查和日志缓冲。
+当前阶段：阶段 2 已完成，下一步阶段 3（本地 HTTP API）。
 
 阶段 1 项目结构决策：优先建立 Swift Package 承载核心模型、配置持久化和单元测试；SwiftUI App/Xcode 目标在阶段 4 补齐。这样阶段 1 可以先获得可运行测试和清晰的核心模块边界。
 
@@ -366,7 +366,39 @@ JSON 读失败时保留损坏文件备份，例如 `config.json.bak`，然后启
 
 ### 完成证据
 
-待阶段 2 完成后补充。
+阶段 2 已于 2026-06-30 完成。
+
+**新增模块：**
+- `Sources/ModelPadCore/Logging/LogBuffer.swift` — 线程安全内存环形日志缓冲（默认 2000 行/8000 字符）。
+- `Sources/ModelPadCore/Process/TCPHealthChecker.swift` — BSD socket 非阻塞 TCP 健康检查（默认 30s 超时）。
+- `Sources/ModelPadCore/Process/ModelProcessManager.swift` — 模型进程生命周期管理器（start/stop/restart/status/pid/logs）。
+
+**测试结果（`swift test`）：**
+- 60 个测试全部通过（阶段 1 回归 29 个 + 阶段 2 新增 31 个）。
+- 新增测试覆盖：LogBuffer（12 个）、TCPHealthChecker（4 个）、ModelProcessManager（15 个）。
+
+**验证覆盖对照：**
+| 计划要求 | 测试 |
+|----------|------|
+| 无端口命令启动成功后进入 running | `startWithoutPortGoesRunning` |
+| 有端口命令等待 TCP 健康检查后进入 running | `portModelTCPSuccessGoesRunning` |
+| TCP 健康检查超时进入 error | 通过不可达端口验证 |
+| 重复启动同一模型不会创建第二个进程 | `duplicateStartReturnsCurrentStatus` |
+| 手动停止运行中模型后进入 stopped | `stopRunningModelGoesStopped` |
+| 启动中模型可被停止 | `startingModelCanBeStopped` |
+| 运行中进程异常退出后进入 error | `processAbnormalExitGoesError` |
+| 重启等价于停止后启动 | `restartStopsThenStarts` |
+| stdout 和 stderr 被捕获到对应日志流 | `stdoutCapturedToLogBuffer`, `stderrCapturedToLogBuffer` |
+| system 日志记录生命周期事件 | `systemLogRecordsLifecycleEvents` |
+| 每模型日志缓冲相互隔离 | `perModelLogIsolation` |
+| 环形缓冲只保留最近 2000 行 | `ringBufferEvictsOldestEntries` |
+| 单行超过 8000 字符会被截断 | `truncateLongLine` |
+| 下次启动会清空旧日志 | `restartClearsOldLogs` |
+
+**验证命令：**
+```bash
+swift test
+```
 
 ## 阶段 1 完成证据
 
