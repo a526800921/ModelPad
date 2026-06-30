@@ -17,7 +17,7 @@
 
 | 计划 | 状态 | 当前阶段 | 依赖 | 证据 |
 |---|---|---|---|---|
-| [ModelPad v1 实施计划](plans/modelpad-v1.md) | 待实施 | 阶段 1：项目骨架和配置模型 | - | [Step 0 证据](plans/modelpad-v1.md#step-0-证据) |
+| [ModelPad v1 实施计划](plans/modelpad-v1.md) | 实施中 | 阶段 1：项目骨架和配置模型 | - | [Step 0 证据](plans/modelpad-v1.md#step-0-证据) |
 
 允许状态：`候选`、`设计中`、`待实施`、`实施中`、`已完成`、`已替代`、`已合并`、`已废弃`。
 
@@ -48,3 +48,4 @@
 | 计划 | 阶段 | 证据 |
 |---|---|---|
 | modelpad-v1 | 阶段 0：治理初始化 | `docs/PLAN_MAP.md` 和 `docs/plans/modelpad-v1.md` 已建立；现状快照见 [Step 0 证据](plans/modelpad-v1.md#step-0-证据)。 |
+| modelpad-v1 | 阶段 1：项目骨架、数据模型和配置持久化 | Swift Package 已建立（`Package.swift`），全部 26 个单元测试通过（2026-06-30T21:13 UTC+8）。详见 [完成证据](plans/modelpad-v1.md#完成证据)。 |

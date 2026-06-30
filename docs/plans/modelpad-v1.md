@@ -247,7 +247,7 @@ JSON 读失败时保留损坏文件备份，例如 `config.json.bak`，然后启
 | 阶段 | 目标 | 进入条件 | 验证方向 | 状态 |
 |---|---|---|---|---|
 | 阶段 0 | 治理初始化和基线固定 | 无 | Step 0 证据存在，治理文档通过检查 | 已完成 |
-| 阶段 1 | 项目骨架、数据模型和配置持久化 | 阶段 0 完成 | Swift 测试覆盖 JSON 编解码、默认配置、原子写入、损坏文件备份 | 待实施 |
+| 阶段 1 | 项目骨架、数据模型和配置持久化 | 阶段 0 完成 | Swift 测试覆盖 JSON 编解码、默认配置、原子写入、损坏文件备份 | 已完成 |
 | 阶段 2 | 进程托管、状态机、健康检查和日志缓冲 | 阶段 1 完成 | 使用短生命周期 fixture 进程验证启动、停止、异常退出、TCP 健康检查、日志截断 | 候选 |
 | 阶段 3 | 本地 HTTP API | 阶段 2 完成 | API 契约测试覆盖允许接口、禁止配置写入接口、敏感字段不泄露 | 候选 |
 | 阶段 4 | SwiftUI 主面板和菜单栏打开面板 | 阶段 3 完成 | 手动验收 UI 工作流；必要时补充 ViewModel 单元测试 | 候选 |
@@ -255,7 +255,7 @@ JSON 读失败时保留损坏文件备份，例如 `config.json.bak`，然后启
 
 ## 当前阶段
 
-当前阶段：阶段 1，项目骨架、数据模型和配置持久化。
+当前阶段：阶段 1 已完成，下一步阶段 2（进程托管、状态机、健康检查和日志缓冲）。
 
 阶段 1 项目结构决策：优先建立 Swift Package 承载核心模型、配置持久化和单元测试；SwiftUI App/Xcode 目标在阶段 4 补齐。这样阶段 1 可以先获得可运行测试和清晰的核心模块边界。
 
@@ -337,7 +337,23 @@ JSON 读失败时保留损坏文件备份，例如 `config.json.bak`，然后启
 
 ### 完成证据
 
-待阶段 1 完成后补充。
+阶段 1 已于 2026-06-30 完成。
+
+**项目结构：**
+- `Package.swift` — Swift Package 定义，macOS 14+ 目标。
+- `Sources/ModelPadCore/Models/` — Engine、ModelStatus、LogStream、ModelConfig、RuntimeModelState、ModelLogEntry。
+- `Sources/ModelPadCore/Config/` — ApiConfig、AppConfig。
+- `Sources/ModelPadCore/Persistence/` — ConfigStore（支持自定义目录的实例化设计）。
+- `Tests/ModelPadCoreTests/` — 3 个测试文件覆盖 26 个测试用例。
+
+**测试结果（`swift test`）：**
+- 26 个测试全部通过。
+- 覆盖范围：Engine/ModelStatus/LogStream 编解码往返、ModelConfig 编解码往返（含可选字段 nil）、ModelLogEntry 编解码、AppConfig 编解码和 JSON 结构契约验证、默认配置（版本/API/空模型列表）、保存后读取往返、文件不存在返回默认配置、原子写入不残留 .tmp、两次连续保存、损坏 JSON 自动备份为 .bak 并降级为空配置、损坏备份内容保留、二次损坏覆盖旧备份、降级后可正常保存读取新配置。
+
+**验证命令：**
+```bash
+swift test
+```
 
 ## 未决问题
 
