@@ -344,11 +344,11 @@ JSON 读失败时保留损坏文件备份，例如 `config.json.bak`，然后启
 - `Sources/ModelPadCore/Models/` — Engine、ModelStatus、LogStream、ModelConfig、RuntimeModelState、ModelLogEntry。
 - `Sources/ModelPadCore/Config/` — ApiConfig、AppConfig。
 - `Sources/ModelPadCore/Persistence/` — ConfigStore（支持自定义目录的实例化设计）。
-- `Tests/ModelPadCoreTests/` — 3 个测试文件覆盖 26 个测试用例。
+- `Tests/ModelPadCoreTests/` — 3 个测试文件覆盖 29 个测试用例。
 
 **测试结果（`swift test`）：**
-- 26 个测试全部通过。
-- 覆盖范围：Engine/ModelStatus/LogStream 编解码往返、ModelConfig 编解码往返（含可选字段 nil）、ModelLogEntry 编解码、AppConfig 编解码和 JSON 结构契约验证、默认配置（版本/API/空模型列表）、保存后读取往返、文件不存在返回默认配置、原子写入不残留 .tmp、两次连续保存、损坏 JSON 自动备份为 .bak 并降级为空配置、损坏备份内容保留、二次损坏覆盖旧备份、降级后可正常保存读取新配置。
+- 29 个测试全部通过。
+- 覆盖范围：Engine/ModelStatus/LogStream 编解码往返、ModelConfig 编解码往返（含可选字段 nil）、ModelLogEntry 编解码、AppConfig 编解码和 JSON 结构契约验证、默认配置（版本/API/空模型列表）、保存后读取往返、文件不存在返回默认配置、原子替换写入不残留 .tmp、首次创建后目标文件存在且内容完整、覆盖已有配置后目标文件存在且内容被替换、replaceItem 原子替换后文件内容完整无截断、两次连续保存、损坏 JSON 自动备份为 .bak 并降级为空配置、损坏备份内容保留、二次损坏覆盖旧备份、降级后可正常保存读取新配置。
 
 **验证命令：**
 ```bash
