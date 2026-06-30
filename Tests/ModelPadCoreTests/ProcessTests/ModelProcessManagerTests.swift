@@ -237,28 +237,66 @@ func restartClearsOldLogs() throws {
 
 @Test("有端口命令等待 TCP 健康检查后进入 running")
 func portModelTCPSuccessGoesRunning() throws {
-    let port = 19879
-    // 先启动 nc 监听
-    let ncProcess = Process()
-    ncProcess.executableURL = URL(fileURLWithPath: "/usr/bin/nc")
-    ncProcess.arguments = ["-l", "\(port)"]
-    try ncProcess.run()
-    Thread.sleep(forTimeInterval: 0.3)
-
-    // 验证 nc 在监听
-    #expect(ncProcess.isRunning)
-
+    // 使用随机端口避免冲突
+    let port = 20100 + Int.random(in: 0...999)
     let manager = ModelProcessManager()
-    // 用一个无害命令 + 设置端口，来测试 TCP 检查流程
-    // 由于 start 方法会调用 TCPHealthChecker，这里只需有端口即可
-    let config = makeTestConfig(command: "sleep 10", port: port)
+    // 模型命令本身通过 nc -l 在指定端口上监听
+    let config = makeTestConfig(command: "nc -l \(port)", port: port)
 
     let status = try manager.start(config: config)
-    #expect(status == .running, "TCP 检查通过应进入 running，实际 \(status)")
+    #expect(status == .running, "nc -l 监听端口后 TCP 检查应通过，实际 \(status)")
 
     _ = manager.stop(modelId: config.id)
-    ncProcess.terminate()
-    ncProcess.waitUntilExit()
+}
+
+@Test("有端口命令 TCP 健康检查超时进入 error 并终止进程")
+func portModelTCPTimeoutGoesErrorAndProcessKilled() throws {
+    let port = 19881
+    let manager = ModelProcessManager()
+    // 模型命令 sleep 不监听任何端口，TCP 检查会超时
+    let config = makeTestConfig(command: "sleep 30", port: port)
+
+    let status = try manager.start(config: config, healthCheckTimeout: 1)
+    #expect(status == .error, "TCP 超时应进入 error，实际 \(status)")
+
+    // 确认进程已被终止
+    Thread.sleep(forTimeInterval: 0.3)
+    let pid = manager.pid(for: config.id)
+    #expect(pid == nil, "健康检查失败后进程应被终止，pid 应为 nil，实际 \(String(describing: pid))")
+
+    // 确认 system 日志包含超时和终止信息
+    let logs = manager.logs(for: config.id)
+    #expect(logs.contains(where: { $0.message.contains("health check timeout") }),
+            "日志应包含 health check timeout")
+    #expect(logs.contains(where: { $0.message.contains("terminated due to health check failure") }),
+            "日志应包含 process terminated")
+}
+
+// MARK: - error 状态重新启动
+
+@Test("error 状态重新启动会先清理旧进程再创建新进程")
+func restartFromErrorCleansUpOldProcess() throws {
+    let port = 19882
+    let manager = ModelProcessManager()
+    // 第一次启动：端口不可达 → timeout → error
+    let config = makeTestConfig(command: "sleep 30", port: port)
+
+    let status1 = try manager.start(config: config, healthCheckTimeout: 1)
+    #expect(status1 == .error)
+
+    // 确认旧进程已被清理
+    let pid1 = manager.pid(for: config.id)
+    #expect(pid1 == nil)
+
+    // 重新启动同一个模型（error → stopped → 新启动）
+    let config2 = makeTestConfig(id: config.id, command: "sleep 10")
+    let status2 = try manager.start(config: config2)
+    #expect(status2 == .running, "error 后重新启动应成功，实际 \(status2)")
+
+    let pid2 = manager.pid(for: config.id)
+    #expect(pid2 != nil, "新进程应有 PID")
+
+    _ = manager.stop(modelId: config.id)
 }
 
 // MARK: - 查询未追踪的模型
@@ -276,25 +314,28 @@ func unknownModelReturnsStopped() {
 @Test("启动中模型可被停止")
 func startingModelCanBeStopped() throws {
     let manager = ModelProcessManager()
-    // 使用一个需要较长时间的命令（有端口，TCP 健康检查会超时）
-    let config = makeTestConfig(command: "sleep 30", port: 19880)
+    // 命令有端口但端口不可达，health check 期间状态应为 starting
+    let port = 20200 + Int.random(in: 0...999)
+    let config = makeTestConfig(command: "sleep 30", port: port)
 
-    // 在后台线程启动
+    // 在后台启动
     Task {
-        let _ = try? manager.start(config: config)
+        let _ = try? manager.start(config: config, healthCheckTimeout: 5)
     }
 
-    // 等待进程 spawn（变为 starting 状态）
+    // 等待进程 spawn 完成，状态应为 starting
     Thread.sleep(forTimeInterval: 0.3)
 
-    // 状态应为 starting（还在等 TCP 检查）
     let status = manager.status(for: config.id)
-    if status == .starting {
-        // 可以在 starting 状态停止
-        let stopResult = manager.stop(modelId: config.id)
-        #expect(stopResult == .stopped)
-    }
-    // 如果已经是 running（进程太快），也算通过
+    // 实际状态应为 starting（TCP 检查还在等待中）
+    #expect(status == .starting, "健康检查期间状态应为 starting，实际 \(status)")
+
+    // 从 starting 状态停止
+    let stopResult = manager.stop(modelId: config.id)
+    #expect(stopResult == .stopped, "启动中停止后应返回 stopped，实际 \(stopResult)")
+
+    // PID 应为 nil
+    #expect(manager.pid(for: config.id) == nil)
 }
 
 // MARK: - env 和 workDir 注入

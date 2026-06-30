@@ -35,19 +35,25 @@ public final class ModelProcessManager: @unchecked Sendable {
     // MARK: - 启动
 
     /// 启动模型。同一模型只允许一个托管进程。
-    /// - Parameter config: 模型配置（command、workDir、env、port 等）。
+    /// - Parameters:
+    ///   - config: 模型配置（command、workDir、env、port 等）。
+    ///   - healthCheckTimeout: TCP 健康检查超时秒数，默认 30。
     /// - Returns: 当前状态（可能为 already running）。
-    public func start(config: ModelConfig) throws -> ModelStatus {
+    public func start(config: ModelConfig, healthCheckTimeout: TimeInterval = 30) throws -> ModelStatus {
         let modelId = config.id
 
+        // 检查是否已存在运行/启动中的进程
         lock.lock()
         if let ctx = contexts[modelId] {
             let currentStatus = ctx.status
             lock.unlock()
-            // 已在运行或启动中，不重复启动
+
             if currentStatus == .running || currentStatus == .starting {
                 return currentStatus
             }
+
+            // stopped 或 error：清理旧进程再启动
+            _ = stop(modelId: modelId)
         } else {
             lock.unlock()
         }
@@ -127,20 +133,40 @@ public final class ModelProcessManager: @unchecked Sendable {
 
         // 健康检查
         if let port = config.port {
-            // 有端口：等待 TCP 健康检查
             ctx.logBuffer.append(stream: .system, message: "[\(ISO8601DateFormatter().string(from: Date()))] waiting for TCP health check on :\(port)")
 
-            let healthy = TCPHealthChecker.check(host: "127.0.0.1", port: port, timeout: 30)
+            let healthy = TCPHealthChecker.check(host: "127.0.0.1", port: port, timeout: healthCheckTimeout)
 
             lock.lock()
             if healthy {
                 ctx.status = .running
                 ctx.logBuffer.append(stream: .system, message: "[\(ISO8601DateFormatter().string(from: Date()))] TCP health check passed, model running")
+                lock.unlock()
             } else {
                 ctx.status = .error
                 ctx.logBuffer.append(stream: .system, message: "[\(ISO8601DateFormatter().string(from: Date()))] TCP health check timeout on :\(port)")
+
+                // 健康检查失败，终止进程
+                ctx.isManualStop = true  // 阻止 terminationHandler 重复设 error
+                let pid = ctx.process.processIdentifier
+                let failedProcess = ctx.process
+                lock.unlock()
+
+                failedProcess.terminate()
+                // 短暂等待退出
+                let deadline = Date().addingTimeInterval(2)
+                while failedProcess.isRunning, Date() < deadline {
+                    Thread.sleep(forTimeInterval: 0.05)
+                }
+                if failedProcess.isRunning {
+                    kill(pid, SIGKILL)
+                    failedProcess.waitUntilExit()
+                }
+
+                lock.lock()
+                ctx.logBuffer.append(stream: .system, message: "[\(ISO8601DateFormatter().string(from: Date()))] process terminated due to health check failure")
+                lock.unlock()
             }
-            lock.unlock()
         } else {
             // 无端口：进程成功 spawn 后直接视为 running
             lock.lock()
@@ -197,7 +223,6 @@ public final class ModelProcessManager: @unchecked Sendable {
         lock.lock()
         ctx.status = .stopped
         ctx.logBuffer.append(stream: .system, message: "[\(ISO8601DateFormatter().string(from: Date()))] model stopped")
-        // 保留日志到下次启动为止，不清理 context（日志可查询）
         lock.unlock()
 
         return .stopped
