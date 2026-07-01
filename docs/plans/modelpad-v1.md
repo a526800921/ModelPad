@@ -249,13 +249,13 @@ JSON 读失败时保留损坏文件备份，例如 `config.json.bak`，然后启
 | 阶段 0 | 治理初始化和基线固定 | 无 | Step 0 证据存在，治理文档通过检查 | 已完成 |
 | 阶段 1 | 项目骨架、数据模型和配置持久化 | 阶段 0 完成 | Swift 测试覆盖 JSON 编解码、默认配置、原子写入、损坏文件备份 | 已完成 |
 | 阶段 2 | 进程托管、状态机、健康检查和日志缓冲 | 阶段 1 完成 | 使用短生命周期 fixture 进程验证启动、停止、异常退出、TCP 健康检查、日志截断 | 已完成 |
-| 阶段 3 | 本地 HTTP API | 阶段 2 完成 | API 契约测试覆盖允许接口、禁止配置写入接口、敏感字段不泄露 | 实施中 |
+| 阶段 3 | 本地 HTTP API | 阶段 2 完成 | API 契约测试覆盖允许接口、禁止配置写入接口、敏感字段不泄露 | 已完成 |
 | 阶段 4 | SwiftUI 主面板和菜单栏打开面板 | 阶段 3 完成 | 手动验收 UI 工作流；必要时补充 ViewModel 单元测试 | 候选 |
 | 阶段 5 | 集成验收和打包前收口 | 阶段 4 完成 | 端到端验收清单通过，文档和 `PLAN_MAP.md` 同步 | 候选 |
 
 ## 当前阶段
 
-当前阶段：阶段 3，本地 HTTP API。
+当前阶段：阶段 3 已完成，下一步阶段 4（SwiftUI 主面板和菜单栏）。
 
 阶段 1 项目结构决策：优先建立 Swift Package 承载核心模型、配置持久化和单元测试；SwiftUI App/Xcode 目标在阶段 4 补齐。这样阶段 1 可以先获得可运行测试和清晰的核心模块边界。
 
@@ -370,7 +370,39 @@ JSON 读失败时保留损坏文件备份，例如 `config.json.bak`，然后启
 
 ### 完成证据
 
-待阶段 3 完成后补充。
+阶段 3 已于 2026-07-01 完成。
+
+**新增模块：**
+- `Sources/ModelPadCore/API/APIDTOs.swift` — 模型摘要、成功/错误响应 DTO。
+- `Sources/ModelPadCore/API/APIServer.swift` — SwiftNIO 嵌入式 HTTP Server。
+- `Package.swift` — 新增 `swift-nio` 依赖（NIOCore/NIOPosix/NIOHTTP1/NIOFoundationCompat）。
+
+**测试结果（`swift test`）：**
+- 全部测试通过（阶段 1-2 回归 62 个 + 阶段 3 新增 21 个）。
+
+**API 契约覆盖对照：**
+| 端点 | 测试 |
+|------|------|
+| `GET /api/health` | `healthEndpoint` |
+| `GET /api/models` | `listModelsEndpoint`, `listModelsEmpty`, `listModelsExcludesSensitiveFields` |
+| `GET /api/models/:id` | `getModelEndpoint`, `getModelNotFound` |
+| 模型摘要不含 command/workDir/env | `modelSummaryExcludesCommand/WorkDir/Env` |
+| `POST /api/models/:id/start` | `startViaAPI` |
+| `POST /api/models/:id/stop` | `stopViaAPI` |
+| `POST /api/models/:id/restart` | `restartViaAPI` |
+| `GET /api/models/:id/logs` | `logsViaAPI` |
+| `POST /api/models/:id/logs/clear` | `clearLogsViaAPI` |
+| 错误格式 | `errorResponseFormat` |
+| 禁止配置写入接口 | `postModelsDisallowed`, `putModelDisallowed`, `deleteModelDisallowed` |
+
+**HTTP 选型理由：**
+选用 SwiftNIO 而非 Vapor：8 端点的本地 JSON API 不需要路由框架、模板引擎或 ORM。
+SwiftNIO 提供 HTTP 解析和事件循环，依赖最少，满足阶段 3 要求。
+
+**验证命令：**
+```bash
+swift test
+```
 
 ## 阶段 2 完成证据
 
