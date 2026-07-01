@@ -27,18 +27,18 @@ public struct ModelDetailView: View {
     private func configSection(model: ModelConfig) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text("Configuration").font(.headline)
+                Text("配置").font(.headline)
                 Spacer()
                 if viewModel.hasUnsavedChanges {
-                    Text("Unsaved").font(.caption).foregroundColor(.orange)
+                    Text("未保存").font(.caption).foregroundColor(.orange)
                 }
-                Button("Save") { viewModel.saveEditingModel(model) }
+                Button("保存") { viewModel.saveEditingModel(model) }
                     .disabled(!viewModel.hasUnsavedChanges)
             }
 
             // 名称
-            fieldRow(label: "Name") {
-                TextField("Model name", text: Binding(
+            fieldRow(label: "名称") {
+                TextField("模型名称", text: Binding(
                     get: { model.name },
                     set: { viewModel.updateEditingModel(name: $0) }
                 ))
@@ -46,20 +46,20 @@ public struct ModelDetailView: View {
             }
 
             // 引擎
-            fieldRow(label: "Engine") {
+            fieldRow(label: "引擎") {
                 Picker("", selection: Binding(
                     get: { model.engine },
                     set: { viewModel.updateEditingModel(engine: $0) }
                 )) {
                     ForEach(Engine.allCases, id: \.self) { engine in
-                        Text(engine.rawValue).tag(engine)
+                        Text(engineDisplayName(engine)).tag(engine)
                     }
                 }
                 .pickerStyle(.segmented)
             }
 
             // 命令
-            fieldRow(label: "Command") {
+            fieldRow(label: "启动命令") {
                 TextEditor(text: Binding(
                     get: { model.command },
                     set: { viewModel.updateEditingModel(command: $0) }
@@ -70,8 +70,8 @@ public struct ModelDetailView: View {
             }
 
             // 端口
-            fieldRow(label: "Port") {
-                TextField("Optional", value: Binding(
+            fieldRow(label: "端口") {
+                TextField("可选", value: Binding(
                     get: { model.port },
                     set: { viewModel.updateEditingModel(port: $0) }
                 ), format: .number.grouping(.never))
@@ -80,8 +80,8 @@ public struct ModelDetailView: View {
             }
 
             // 工作目录
-            fieldRow(label: "Work Dir") {
-                TextField("Optional", text: Binding(
+            fieldRow(label: "工作目录") {
+                TextField("可选", text: Binding(
                     get: { model.workDir ?? "" },
                     set: { viewModel.updateEditingModel(workDir: $0) }
                 ))
@@ -94,7 +94,7 @@ public struct ModelDetailView: View {
 
     private func actionSection(model: ModelConfig) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Actions").font(.headline)
+            Text("操作").font(.headline)
 
             HStack {
                 let status = viewModel.statusMessages[model.id] ?? .stopped
@@ -108,17 +108,17 @@ public struct ModelDetailView: View {
                 Spacer()
 
                 Button(action: { viewModel.startModel(model.id) }) {
-                    Label("Start", systemImage: "play.fill")
+                    Label("启动", systemImage: "play.fill")
                 }
                 .disabled(status == .running || status == .starting)
 
                 Button(action: { viewModel.stopModel(model.id) }) {
-                    Label("Stop", systemImage: "stop.fill")
+                    Label("停止", systemImage: "stop.fill")
                 }
                 .disabled(status != .running && status != .starting)
 
                 Button(action: { viewModel.restartModel(model.id) }) {
-                    Label("Restart", systemImage: "arrow.clockwise")
+                    Label("重启", systemImage: "arrow.clockwise")
                 }
                 .disabled(status != .running)
             }
@@ -133,6 +133,15 @@ public struct ModelDetailView: View {
             content()
         }
     }
+
+    private func engineDisplayName(_ engine: Engine) -> String {
+        switch engine {
+        case .ollama: return "Ollama"
+        case .llamacpp: return "llama.cpp"
+        case .vllm: return "vLLM"
+        case .custom: return "自定义"
+        }
+    }
 }
 
 // MARK: - StatusBadge
@@ -143,7 +152,7 @@ struct StatusBadge: View {
     var body: some View {
         HStack(spacing: 4) {
             Circle().fill(statusColor).frame(width: 6, height: 6)
-            Text(status.rawValue).font(.caption)
+            Text(statusText).font(.caption)
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 3)
@@ -157,6 +166,15 @@ struct StatusBadge: View {
         case .starting: return .yellow
         case .running: return .green
         case .error: return .red
+        }
+    }
+
+    private var statusText: String {
+        switch status {
+        case .stopped: return "已停止"
+        case .starting: return "启动中"
+        case .running: return "运行中"
+        case .error: return "错误"
         }
     }
 }

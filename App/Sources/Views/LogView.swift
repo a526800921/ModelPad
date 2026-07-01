@@ -18,12 +18,12 @@ public struct LogView: View {
         VStack(alignment: .leading, spacing: 6) {
             // 标题栏
             HStack {
-                Text("Logs").font(.headline)
+                Text("日志").font(.headline)
                 Spacer()
-                Toggle("Auto-scroll", isOn: $autoScroll).font(.caption)
-                Button("Clear") { viewModel.clearLogs(for: modelId) }
+                Toggle("自动滚动", isOn: $autoScroll).font(.caption)
+                Button("清空") { viewModel.clearLogs(for: modelId) }
                     .font(.caption)
-                Button("Copy") { copyLogs() }
+                Button("复制") { copyLogs() }
                     .font(.caption)
             }
 
@@ -41,7 +41,7 @@ public struct LogView: View {
                 .frame(maxHeight: 200)
                 .background(Color.black.opacity(0.06))
                 .cornerRadius(6)
-                .onChange(of: logs.count) { _ in
+                .onChange(of: logs.count) { _, _ in
                     if autoScroll, !logs.isEmpty {
                         proxy.scrollTo("\(logs[logs.count - 1].time.timeIntervalSince1970)")
                     }
@@ -80,9 +80,9 @@ struct LogEntryRow: View {
 
     private var streamLabel: String {
         switch entry.stream {
-        case .stdout: return "OUT"
-        case .stderr: return "ERR"
-        case .system: return "SYS"
+        case .stdout: return "输出"
+        case .stderr: return "错误"
+        case .system: return "系统"
         }
     }
 

@@ -19,7 +19,7 @@ public struct MainWindow: View {
             } else {
                 VStack {
                     Spacer()
-                    Text("Select a model or create a new one")
+                    Text("选择一个模型，或新建模型")
                         .foregroundColor(.secondary)
                         .font(.title3)
                     Spacer()
@@ -30,14 +30,14 @@ public struct MainWindow: View {
         .toolbar {
             ToolbarItemGroup {
                 Button(action: { viewModel.startAllModels() }) {
-                    Label("Start All", systemImage: "play.fill")
+                    Label("全部启动", systemImage: "play.fill")
                 }
-                .help("Start all stopped/error models")
+                .help("启动所有已停止或错误状态的模型")
 
                 Button(action: { viewModel.stopAllModels() }) {
-                    Label("Stop All", systemImage: "stop.fill")
+                    Label("全部停止", systemImage: "stop.fill")
                 }
-                .help("Stop all running models")
+                .help("停止所有运行中的模型")
             }
         }
     }

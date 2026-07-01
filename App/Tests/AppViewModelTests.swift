@@ -30,7 +30,7 @@ func makeTestViewModel() -> (AppViewModel, ConfigStore, ModelProcessManager) {
     @Test("ConfigStore + ProcessManager + APIServer 装配成功")
     @MainActor
     func appAssemblyCreatesCoreObjects() {
-        let (vm, store, pm) = makeTestViewModel()
+        let (vm, _, _) = makeTestViewModel()
         // 初始状态：空模型列表
         #expect(vm.models.isEmpty)
         #expect(vm.selectedModelId == nil)
@@ -51,7 +51,7 @@ func makeTestViewModel() -> (AppViewModel, ConfigStore, ModelProcessManager) {
 
         vm.newModel()
         #expect(vm.models.count == 1)
-        #expect(vm.models[0].name == "New Model")
+        #expect(vm.models[0].name == "新模型")
         #expect(vm.hasUnsavedChanges == false, "newModel 应自动保存")
 
         // 验证持久化
@@ -187,8 +187,8 @@ func makeTestViewModel() -> (AppViewModel, ConfigStore, ModelProcessManager) {
         #expect(pm.status(for: m1.id) == .running)
         #expect(pm.status(for: m2.id) == .running)
 
-        pm.stop(modelId: m1.id)
-        pm.stop(modelId: m2.id)
+        _ = pm.stop(modelId: m1.id)
+        _ = pm.stop(modelId: m2.id)
     }
 
     @Test("stopAllModels 只停止 running 和 starting 模型")

@@ -59,7 +59,7 @@ public final class AppViewModel: ObservableObject {
         if hasUnsavedChanges, let current = editingModel {
             saveEditingModel(current)
         }
-        let model = ModelConfig(name: "New Model", engine: .custom, command: "")
+        let model = ModelConfig(name: "新模型", engine: .custom, command: "")
         models.append(model)
         selectedModelId = model.id
         editingModel = model

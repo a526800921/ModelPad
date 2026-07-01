@@ -13,13 +13,13 @@ public struct ModelListView: View {
         VStack(spacing: 0) {
             // 标题栏
             HStack {
-                Text("Models")
+                Text("模型")
                     .font(.headline)
                 Spacer()
                 Button(action: { viewModel.newModel() }) {
                     Image(systemName: "plus")
                 }
-                .help("Add model")
+                .help("添加模型")
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
@@ -51,19 +51,19 @@ public struct ModelListView: View {
             // 底部按钮
             HStack {
                 Button(action: { viewModel.newModel() }) {
-                    Label("Add", systemImage: "plus")
+                    Label("添加", systemImage: "plus")
                 }
                 .labelStyle(.iconOnly)
-                .help("Add model")
+                .help("添加模型")
 
                 Spacer()
 
                 if let selectedId = viewModel.selectedModelId {
                     Button(action: { requestDelete(selectedId) }) {
-                        Label("Delete", systemImage: "trash")
+                        Label("删除", systemImage: "trash")
                     }
                     .labelStyle(.iconOnly)
-                    .help("Delete selected model")
+                    .help("删除选中模型")
                     .disabled(viewModel.models.isEmpty)
                 }
             }
@@ -74,8 +74,8 @@ public struct ModelListView: View {
             get: { pendingDeleteId != nil },
             set: { if !$0 { pendingDeleteId = nil } }
         )) {
-            Button("Cancel", role: .cancel) { pendingDeleteId = nil }
-            Button("Delete", role: .destructive) {
+            Button("取消", role: .cancel) { pendingDeleteId = nil }
+            Button("删除", role: .destructive) {
                 if let id = pendingDeleteId {
                     viewModel.deleteModel(id)
                 }
@@ -83,13 +83,13 @@ public struct ModelListView: View {
             }
         } message: {
             Text(pendingDeleteIsRunning
-                ? "This model is currently running. It will be stopped before deletion."
-                : "Delete this model configuration?")
+                ? "该模型正在运行。删除前会先停止它。"
+                : "确定删除这个模型配置吗？")
         }
     }
 
     private var alertTitle: String {
-        "Delete Model"
+        "删除模型"
     }
 
     private func requestDelete(_ id: UUID) {
@@ -113,7 +113,7 @@ struct ModelRow: View {
                 Text(model.name)
                     .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
                     .lineLimit(1)
-                Text(model.engine.rawValue)
+                Text(engineDisplayName(model.engine))
                     .font(.system(size: 10))
                     .foregroundColor(.secondary)
             }
@@ -140,6 +140,15 @@ struct ModelRow: View {
         case .starting: return .yellow
         case .running: return .green
         case .error: return .red
+        }
+    }
+
+    private func engineDisplayName(_ engine: Engine) -> String {
+        switch engine {
+        case .ollama: return "Ollama"
+        case .llamacpp: return "llama.cpp"
+        case .vllm: return "vLLM"
+        case .custom: return "自定义"
         }
     }
 }

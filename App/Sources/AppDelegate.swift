@@ -9,6 +9,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObjec
     public let viewModel: AppViewModel
     private var menuBarController: MenuBarController?
     private var mainWindow: NSWindow?
+    private var isTerminating = false
 
     public override init() {
         let store = ConfigStore.shared
@@ -25,7 +26,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObjec
         do {
             try viewModel.apiServer.start()
         } catch {
-            print("[ModelPad] API Server start failed: \(error)")
+            print("[ModelPad] API 服务启动失败：\(error)")
         }
 
         // 设置菜单栏
@@ -42,15 +43,21 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObjec
     }
 
     public func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        // 在主线程停止进程，在后台线程停止 NIO（避免阻塞主线程导致无法退出）
-        viewModel.stopAllRunningProcesses()
+        guard !isTerminating else {
+            return .terminateLater
+        }
+        isTerminating = true
 
-        // API Server 的 NIO shutdown 可能阻塞，放到后台线程
+        viewModel.stopStatusRefresh()
+        viewModel.stopAllRunningProcesses()
         DispatchQueue.global().async {
             try? self.viewModel.apiServer.stop()
+            DispatchQueue.main.async {
+                sender.reply(toApplicationShouldTerminate: true)
+            }
         }
 
-        return .terminateNow
+        return .terminateLater
     }
 
     // MARK: - 窗口控制

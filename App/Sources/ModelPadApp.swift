@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 @main
 struct ModelPadApp: App {
@@ -13,6 +14,12 @@ struct ModelPadApp: App {
         .windowResizability(.contentMinSize)
         .commands {
             CommandGroup(replacing: .newItem) {} // 移除 New 菜单项
+            CommandGroup(replacing: .appTermination) {
+                Button("退出 ModelPad") {
+                    NSApp.terminate(nil)
+                }
+                .keyboardShortcut("q")
+            }
         }
     }
 }
