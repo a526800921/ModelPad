@@ -248,123 +248,131 @@ JSON 读失败时保留损坏文件备份，例如 `config.json.bak`，然后启
 |---|---|---|---|---|
 | 阶段 0 | 治理初始化和基线固定 | 无 | Step 0 证据存在，治理文档通过检查 | 已完成 |
 | 阶段 1 | 项目骨架、数据模型和配置持久化 | 阶段 0 完成 | Swift 测试覆盖 JSON 编解码、默认配置、原子写入、损坏文件备份 | 已完成 |
-| 阶段 2 | 进程托管、状态机、健康检查和日志缓冲 | 阶段 1 完成 | 使用短生命周期 fixture 进程验证启动、停止、异常退出、TCP 健康检查、日志截断 | 实施中 |
-| 阶段 3 | 本地 HTTP API | 阶段 2 完成 | API 契约测试覆盖允许接口、禁止配置写入接口、敏感字段不泄露 | 候选 |
+| 阶段 2 | 进程托管、状态机、健康检查和日志缓冲 | 阶段 1 完成 | 使用短生命周期 fixture 进程验证启动、停止、异常退出、TCP 健康检查、日志截断 | 已完成 |
+| 阶段 3 | 本地 HTTP API | 阶段 2 完成 | API 契约测试覆盖允许接口、禁止配置写入接口、敏感字段不泄露 | 实施中 |
 | 阶段 4 | SwiftUI 主面板和菜单栏打开面板 | 阶段 3 完成 | 手动验收 UI 工作流；必要时补充 ViewModel 单元测试 | 候选 |
 | 阶段 5 | 集成验收和打包前收口 | 阶段 4 完成 | 端到端验收清单通过，文档和 `PLAN_MAP.md` 同步 | 候选 |
 
 ## 当前阶段
 
-当前阶段：阶段 2，进程托管、状态机、健康检查和日志缓冲。
+当前阶段：阶段 3，本地 HTTP API。
 
 阶段 1 项目结构决策：优先建立 Swift Package 承载核心模型、配置持久化和单元测试；SwiftUI App/Xcode 目标在阶段 4 补齐。这样阶段 1 可以先获得可运行测试和清晰的核心模块边界。
 
 ### 范围
 
-- 实现模型进程托管核心，不接入 UI 和 HTTP API。
-- 使用 `ModelConfig.command` 通过 `/bin/zsh -lc` 启动进程。
-- 支持 `workDir` 和 `env` 注入。
-- 维护 `modelId -> Process` 或等价运行句柄映射。
-- 实现启动、停止、重启。
-- 实现状态流转：`stopped`、`starting`、`running`、`error`。
-- 实现重复启动保护：同一模型同一时间只允许一个托管进程实例。
-- 实现手动停止和异常退出的状态区分。
-- 实现 TCP 端口健康检查。
-- 实现 stdout、stderr、system 日志捕获。
-- 实现每模型内存环形日志缓冲。
-- 实现启动时清空旧日志。
-- 实现单行日志截断。
-- 添加阶段 2 所需测试。
+- 实现本地 HTTP API Server，只监听 `127.0.0.1`。
+- 默认端口使用配置契约中的 `9786`。
+- 对外接口以本文档“公共 API 契约”为准。
+- 接入阶段 1 的 `AppConfig` / `ModelConfig` 作为模型配置来源。
+- 接入阶段 2 的 `ModelProcessManager` 作为启动、停止、重启、状态、pid、日志来源。
+- 实现模型运行摘要响应，不返回 `command`、`workDir`、`env`。
+- 实现统一 JSON 成功响应和错误响应。
+- 实现 `GET /api/health`。
+- 实现 `GET /api/models` 和 `GET /api/models/:id`。
+- 实现 `POST /api/models/:id/start`、`stop`、`restart`。
+- 实现 `GET /api/models/:id/logs`。
+- 实现 `POST /api/models/:id/logs/clear`。
+- 明确拒绝或不注册配置写入接口：`POST /api/models`、`PUT /api/models/:id`、`DELETE /api/models/:id`。
+- 添加阶段 3 所需 API 契约测试。
 
 ### 非范围
 
-- 不实现 HTTP API。
 - 不实现完整 SwiftUI 主界面。
 - 不实现菜单栏图标。
+- 不实现远程访问。
+- 不做 API 鉴权。
+- 不做 HTTPS。
+- 不做配置写入 API。
+- 不做 WebSocket / SSE 实时日志。
+- 不做日志分页和搜索。
 - 不实现模型自动重启。
 - 不实现日志写盘。
-- 不实现 WebSocket / SSE 实时日志。
-- 不实现引擎专用启动逻辑。
-- 不实现引擎专用健康检查。
-- 不修改配置文件 Schema，除非发现阶段 2 无法在现有契约下实现。
+- 不修改配置文件 Schema，除非发现阶段 3 无法在现有契约下实现。
 
 ### 实施步骤
 
-1. 补充进程管理相关测试 fixture 和辅助工具。
-2. 实现日志缓冲类型，覆盖容量限制、单行截断、清空和按模型隔离。
-3. 实现 TCP 健康检查器，覆盖端口可连和超时失败。
-4. 实现模型进程管理器，覆盖启动、重复启动保护、停止、重启和异常退出。
-5. 接入 stdout / stderr 捕获，并将生命周期事件写入 system 日志。
-6. 运行阶段 1 回归测试和阶段 2 新增测试。
-7. 记录阶段 2 完成证据。
-8. 同步 `docs/PLAN_MAP.md` 状态和证据。
+1. 选择并记录阶段 3 HTTP 实现方式：优先最小嵌入式 HTTP 实现，避免阶段 3 引入过重依赖；如引入 SwiftNIO 或 Vapor，需补充理由。
+2. 定义 API 响应 DTO：模型摘要、日志条目、成功响应、错误响应。
+3. 实现 API Server 的路由、请求解析和 JSON 编码。
+4. 实现模型配置只读仓库或注入接口，供 API 查询模型列表和详情。
+5. 接入 `ModelProcessManager` 完成 start / stop / restart / logs / clear。
+6. 添加 API 契约测试，包括允许接口、禁止接口、错误响应和敏感字段不泄露。
+7. 运行阶段 1-2 回归测试和阶段 3 新增测试。
+8. 记录阶段 3 完成证据。
+9. 同步 `docs/PLAN_MAP.md` 状态和证据。
 
 ### Step 0 证据
 
-阶段 2 启动基线：
+阶段 3 启动基线：
 
-- 阶段 1 已完成，当前 Swift Package 可构建。
-- 当前已有模型、配置、运行态和日志条目的基础数据类型。
-- 当前已有 JSON 配置持久化和 29 个通过的单元测试。
-- 当前尚无真实进程托管模块。
-- 当前尚无 TCP 健康检查模块。
-- 当前尚无 stdout / stderr 捕获实现。
-- 当前尚无每模型内存环形日志缓冲实现。
+- 阶段 1 已完成，当前 Swift Package 可构建，配置模型和 JSON Store 已存在。
+- 阶段 2 已完成，`LogBuffer`、`TCPHealthChecker`、`ModelProcessManager` 已存在。
+- 当前已有 62 个通过测试，覆盖阶段 1-2。
+- 当前尚无本地 HTTP API Server。
+- 当前尚无 API 路由、响应 DTO 或契约测试。
+- 当前公共 API 契约已在本文档“公共 API 契约”定义。
 
-阶段 2 可观察基线：
+阶段 3 可观察基线：
 
-- 无端口模型：进程成功 spawn 后应进入 `running`。
-- 有端口模型：进程 spawn 后先进入 `starting`，TCP 端口可连后进入 `running`。
-- 健康检查超时：状态进入 `error`，并写入 system 日志。
-- 手动停止：状态进入 `stopped`，不算错误。
-- 异常退出：非手动停止时状态进入 `error`。
-- 启动时清空旧日志，并写入本次启动 system 日志。
-- 每个模型最多保留最近 2000 行日志。
-- 单行日志最多保留 8000 字符，超长截断。
+- API 默认监听 `127.0.0.1:9786`。
+- API 不做鉴权。
+- API 不开放配置新增、更新、删除。
+- API 模型摘要不得包含 `command`、`workDir`、`env`。
+- API 错误响应必须使用统一 JSON 格式。
+- API 的 start / stop / restart 行为必须透传阶段 2 的进程托管状态。
 
 ### 验证方式
 
-阶段 2 完成时至少运行：
+阶段 3 完成时至少运行：
 
 - 项目构建命令。
 - Swift 单元测试。
-- 阶段 1 回归测试。
-- 进程托管测试。
-- TCP 健康检查测试。
-- 日志缓冲测试。
+- 阶段 1-2 回归测试。
+- API 契约测试。
+- API 禁止配置写入接口测试。
+- API 敏感字段不泄露测试。
+- API 生命周期控制测试。
 
-如果项目脚本尚未建立，阶段 2 需要在完成记录中写明实际使用的 `swift test`、`xcodebuild test` 或等效命令。
+如果项目脚本尚未建立，阶段 3 需要在完成记录中写明实际使用的 `swift test`、`xcodebuild test` 或等效命令。
 
 ### 测试覆盖率
 
-阶段 2 不强制覆盖率百分比门槛，但必须覆盖：
+阶段 3 不强制覆盖率百分比门槛，但必须覆盖：
 
-- 无端口命令启动成功后进入 `running`。
-- 有端口命令等待 TCP 健康检查后进入 `running`。
-- TCP 健康检查超时进入 `error`。
-- 重复启动同一模型不会创建第二个进程。
-- 手动停止运行中模型后进入 `stopped`。
-- 启动中模型可被停止。
-- 运行中进程异常退出后进入 `error`。
-- 重启等价于停止后启动。
-- stdout 和 stderr 被捕获到对应日志流。
-- system 日志记录启动、停止、健康检查失败和异常退出等生命周期事件。
-- 每模型日志缓冲相互隔离。
-- 环形缓冲只保留最近 2000 行。
-- 单行超过 8000 字符会被截断。
-- 下次启动会清空旧日志。
+- `GET /api/health` 返回成功。
+- `GET /api/models` 返回模型摘要列表。
+- `GET /api/models/:id` 返回单个模型摘要。
+- 未知模型返回统一 `model_not_found` 错误。
+- 模型摘要不包含 `command`、`workDir`、`env`。
+- `POST /api/models/:id/start` 启动模型并返回状态 / pid。
+- `POST /api/models/:id/stop` 停止模型并返回 `stopped`。
+- `POST /api/models/:id/restart` 等价于停止后启动。
+- `GET /api/models/:id/logs` 返回日志数组。
+- `POST /api/models/:id/logs/clear` 清空日志。
+- `POST /api/models` 不可用。
+- `PUT /api/models/:id` 不可用。
+- `DELETE /api/models/:id` 不可用。
+- 未知路径或方法返回统一错误。
+- JSON 编码失败或内部异常返回统一错误，不泄露敏感配置。
 
 ### 完成条件
 
 - 项目可构建。
-- 阶段 2 范围内的进程托管、健康检查和日志缓冲已实现。
-- 阶段 2 验证方式中的测试通过。
-- 阶段 1 回归测试仍通过。
-- 测试覆盖阶段 2 列出的关键行为。
+- 阶段 3 范围内的本地 HTTP API 已实现。
+- 阶段 3 验证方式中的测试通过。
+- 阶段 1-2 回归测试仍通过。
+- 测试覆盖阶段 3 列出的关键行为。
+- API 不开放配置写入接口。
+- API 响应不泄露 `command`、`workDir`、`env`。
 - 完成证据写入本文档。
 - `docs/PLAN_MAP.md` 状态和证据同步。
 
 ### 完成证据
+
+待阶段 3 完成后补充。
+
+## 阶段 2 完成证据
 
 阶段 2 已于 2026-06-30 完成。
 
@@ -374,15 +382,15 @@ JSON 读失败时保留损坏文件备份，例如 `config.json.bak`，然后启
 - `Sources/ModelPadCore/Process/ModelProcessManager.swift` — 模型进程生命周期管理器（start/stop/restart/status/pid/logs）。
 
 **测试结果（`swift test`）：**
-- 60 个测试全部通过（阶段 1 回归 29 个 + 阶段 2 新增 31 个）。
-- 新增测试覆盖：LogBuffer（12 个）、TCPHealthChecker（4 个）、ModelProcessManager（15 个）。
+- 62 个测试全部通过（阶段 1 回归 29 个 + 阶段 2 新增 33 个）。
+- 新增测试覆盖：LogBuffer（12 个）、TCPHealthChecker（4 个）、ModelProcessManager（17 个）。
 
 **验证覆盖对照：**
 | 计划要求 | 测试 |
 |----------|------|
 | 无端口命令启动成功后进入 running | `startWithoutPortGoesRunning` |
 | 有端口命令等待 TCP 健康检查后进入 running | `portModelTCPSuccessGoesRunning` |
-| TCP 健康检查超时进入 error | 通过不可达端口验证 |
+| TCP 健康检查超时进入 error | `portModelTCPTimeoutGoesErrorAndProcessKilled` |
 | 重复启动同一模型不会创建第二个进程 | `duplicateStartReturnsCurrentStatus` |
 | 手动停止运行中模型后进入 stopped | `stopRunningModelGoesStopped` |
 | 启动中模型可被停止 | `startingModelCanBeStopped` |
@@ -394,6 +402,8 @@ JSON 读失败时保留损坏文件备份，例如 `config.json.bak`，然后启
 | 环形缓冲只保留最近 2000 行 | `ringBufferEvictsOldestEntries` |
 | 单行超过 8000 字符会被截断 | `truncateLongLine` |
 | 下次启动会清空旧日志 | `restartClearsOldLogs` |
+| 健康检查失败后不遗留托管进程 | `portModelTCPTimeoutGoesErrorAndProcessKilled` |
+| error 状态重新启动会清理旧进程 | `restartFromErrorCleansUpOldProcess` |
 
 **验证命令：**
 ```bash
