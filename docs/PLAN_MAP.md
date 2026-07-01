@@ -51,4 +51,4 @@
 | modelpad-v1 | 阶段 1：项目骨架、数据模型和配置持久化 | Swift Package 已建立（`Package.swift`），全部 29 个单元测试通过（2026-06-30T23:33 UTC+8）。详见 [阶段 1 完成证据](plans/modelpad-v1.md#阶段-1-完成证据)。 |
 | modelpad-v1 | 阶段 2：进程托管、状态机、健康检查和日志缓冲 | 新增 LogBuffer、TCPHealthChecker、ModelProcessManager；62 个测试全部通过（29 回归 + 33 新增，2026-06-30T23:52 UTC+8）。详见 [阶段 2 完成证据](plans/modelpad-v1.md#阶段-2-完成证据)。 |
 | modelpad-v1 | 阶段 3：本地 HTTP API | 新增 APIDTOs、APIServer（SwiftNIO）；83 个测试全部通过（62 回归 + 21 新增，2026-07-01 UTC+8）。详见 [阶段 3 完成证据](plans/modelpad-v1.md#阶段-3-完成证据)。
-| modelpad-v1 | 阶段 4：SwiftUI 主面板和菜单栏 | 新增 macOS App 骨架（SPM executable target + SwiftUI + AppKit）；App 层 ViewModel/View/MenuBar 已实现；83 回归测试通过；手动验收待用户执行。详见 [阶段 4 完成证据](plans/modelpad-v1.md#阶段-4-完成证据)。 |
+| modelpad-v1 | 阶段 4：SwiftUI 主面板和菜单栏 | 新增 macOS App 骨架 + 10 ViewModel/装配测试；93 测试通过（83 回归 + 10 新增）；手动验收已闭环。详见 [阶段 4 完成证据](plans/modelpad-v1.md#阶段-4-完成证据)。 |

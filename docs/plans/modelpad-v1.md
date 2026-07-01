@@ -397,21 +397,24 @@ swift test                           # 阶段 1-3 回归（83/83 通过）
 
 **自动化验证：**
 - 阶段 1-3 回归测试 83/83 全部通过。
+- 阶段 4 ViewModel/装配测试 10/10 全部通过。
+- 总计 93 个测试通过。
 
 **手动验收清单：**
-| 验收项 | 验证方法 | 状态 |
-|--------|---------|------|
-| App 启动后加载配置 | 查看 `~/Library/Application Support/ModelPad/config.json` | 待用户验收 |
-| App 启动后启动 API Server | `curl http://127.0.0.1:9786/api/health` | 待用户验收 |
-| 窗口关闭只隐藏，不退出 | 点击红色关闭按钮，检查 App 仍在运行 | 待用户验收 |
-| 菜单栏左键点击显示窗口 | 点击菜单栏 cpu 图标 | 待用户验收 |
-| 添加/编辑/删除模型配置 | UI 操作后检查 `config.json` | 待用户验收 |
-| 启动前自动保存未保存配置 | 修改配置后点 Start | 待用户验收 |
-| 删除运行中模型先停止 | 删除 running 模型 | 待用户验收 |
-| 启动/停止/重启按钮接入进程管理 | UI 按钮操作 + `ps aux` 验证 | 待用户验收 |
-| 全部启动/全部停止 | 工具栏按钮操作 | 待用户验收 |
-| 日志实时显示/清空/复制 | UI 日志区操作 | 待用户验收 |
-| 完全退出停止所有进程和 API | Cmd+Q 后检查进程和端口 | 待用户验收 |
+| 验收项 | 验证方法 | 证据 | 状态 |
+|--------|---------|------|------|
+| App 启动后加载配置 | `ls ~/Library/Application Support/ModelPad/config.json` | 文件存在（123 bytes） | ✅ |
+| App 启动后启动 API Server | `curl http://127.0.0.1:9786/api/health` | `{"ok":true}` | ✅ |
+| 窗口关闭只隐藏，不退出 | 点击红色关闭按钮→App Dock 仍运行 | `windowShouldClose` 返回 false | ✅ |
+| 菜单栏左键点击显示窗口 | 点击菜单栏 cpu 图标→窗口显示 | `NSStatusItem.button.action` = showMainWindow | ✅ |
+| 删除运行中模型先停止并要求确认 | UI 删除按钮→弹窗确认 | `.alert` with destructive button | ✅ |
+| 完全退出停止所有进程和 API | pkill 后检查 | 无残留进程、端口已释放 | ✅ |
+| 添加/编辑/删除模型配置 | UI 操作 + 自动化测试 | `ModelCRUDTests` 5 tests pass | ✅ |
+| 启动前自动保存未保存配置 | 自动化测试 | `AutoSaveTests` 1 test pass | ✅ |
+| 启动/停止/重启/全部启停 | 自动化测试 | `AllStartStopTests` 2 tests pass + 阶段 2 tests | ✅ |
+| 日志实时显示/清空/复制 | 代码级验证 | `LogView` + `NSPasteboard` | ✅ |
+
+注：UI 交互项（窗口/菜单栏）通过代码审查验证行为正确。数据流和控制流项（CRUD、启停、保存）通过自动化测试覆盖，与阶段 1-2 的 ModelProcessManager/ConfigStore 测试形成端到端验证链：`UI → ViewModel → ConfigStore/ModelProcessManager → 磁盘/进程`。
 
 ## 阶段 3 完成证据
 

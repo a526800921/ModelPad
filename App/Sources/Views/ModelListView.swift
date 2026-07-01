@@ -4,6 +4,8 @@ import ModelPadCore
 /// 左侧模型列表。
 public struct ModelListView: View {
     @EnvironmentObject var viewModel: AppViewModel
+    @State private var pendingDeleteId: UUID?
+    @State private var pendingDeleteIsRunning = false
 
     public init() {}
 
@@ -40,7 +42,7 @@ public struct ModelListView: View {
                 .onDelete { indexSet in
                     for idx in indexSet {
                         let model = viewModel.models[idx]
-                        viewModel.deleteModel(model.id)
+                        requestDelete(model.id)
                     }
                 }
             }
@@ -57,7 +59,7 @@ public struct ModelListView: View {
                 Spacer()
 
                 if let selectedId = viewModel.selectedModelId {
-                    Button(action: { viewModel.deleteModel(selectedId) }) {
+                    Button(action: { requestDelete(selectedId) }) {
                         Label("Delete", systemImage: "trash")
                     }
                     .labelStyle(.iconOnly)
@@ -68,6 +70,32 @@ public struct ModelListView: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
         }
+        .alert(alertTitle, isPresented: Binding(
+            get: { pendingDeleteId != nil },
+            set: { if !$0 { pendingDeleteId = nil } }
+        )) {
+            Button("Cancel", role: .cancel) { pendingDeleteId = nil }
+            Button("Delete", role: .destructive) {
+                if let id = pendingDeleteId {
+                    viewModel.deleteModel(id)
+                }
+                pendingDeleteId = nil
+            }
+        } message: {
+            Text(pendingDeleteIsRunning
+                ? "This model is currently running. It will be stopped before deletion."
+                : "Delete this model configuration?")
+        }
+    }
+
+    private var alertTitle: String {
+        "Delete Model"
+    }
+
+    private func requestDelete(_ id: UUID) {
+        let status = viewModel.statusMessages[id] ?? .stopped
+        pendingDeleteIsRunning = (status == .running || status == .starting)
+        pendingDeleteId = id
     }
 }
 

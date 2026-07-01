@@ -63,8 +63,8 @@ public final class AppViewModel: ObservableObject {
         models.append(model)
         selectedModelId = model.id
         editingModel = model
-        hasUnsavedChanges = true
         saveAllModels()
+        hasUnsavedChanges = false
     }
 
     public func updateEditingModel(name: String? = nil, engine: Engine? = nil, command: String? = nil,
@@ -205,16 +205,16 @@ public final class AppViewModel: ObservableObject {
 
     public func shutdown() {
         stopStatusRefresh()
+        stopAllRunningProcesses()
+    }
 
-        // 停止所有托管进程
+    /// 停止所有运行中进程（主线程调用），不停止 API Server。
+    public func stopAllRunningProcesses() {
         for model in models {
             let status = processManager.status(for: model.id)
             if status == .running || status == .starting {
                 _ = processManager.stop(modelId: model.id)
             }
         }
-
-        // 停止 API Server
-        try? apiServer.stop()
     }
 }

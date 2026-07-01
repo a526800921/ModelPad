@@ -41,8 +41,16 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObjec
         false // 关闭窗口不退出
     }
 
-    public func applicationWillTerminate(_ notification: Notification) {
-        viewModel.shutdown()
+    public func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        // 在主线程停止进程，在后台线程停止 NIO（避免阻塞主线程导致无法退出）
+        viewModel.stopAllRunningProcesses()
+
+        // API Server 的 NIO shutdown 可能阻塞，放到后台线程
+        DispatchQueue.global().async {
+            try? self.viewModel.apiServer.stop()
+        }
+
+        return .terminateNow
     }
 
     // MARK: - 窗口控制

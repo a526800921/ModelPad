@@ -42,6 +42,15 @@ let package = Package(
                 .unsafeFlags(["-Xlinker", "-framework", "-Xlinker", "AppKit"]),
                 .unsafeFlags(["-Xlinker", "-framework", "-Xlinker", "SwiftUI"])
             ]
+        ),
+        .testTarget(
+            name: "ModelPadAppTests",
+            dependencies: ["ModelPadApp"],
+            path: "App/Tests",
+            linkerSettings: [
+                .unsafeFlags(["-Xlinker", "-framework", "-Xlinker", "AppKit"]),
+                .unsafeFlags(["-Xlinker", "-framework", "-Xlinker", "SwiftUI"])
+            ]
         )
     ]
 )
