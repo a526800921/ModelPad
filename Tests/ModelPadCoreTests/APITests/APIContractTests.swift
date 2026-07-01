@@ -12,7 +12,7 @@ func makeTestServer() throws -> (APIServer, ConfigStore, ModelProcessManager, In
             .appendingPathComponent("ModelPadAPITest-\(UUID().uuidString)")
     )
     let pm = ModelProcessManager()
-    let port = 21000 + Int.random(in: 0...999)
+    let port = 22000 + Int.random(in: 0...4999)
     let server = APIServer(host: "127.0.0.1", port: port, processManager: pm, configStore: store)
     return (server, store, pm, port)
 }

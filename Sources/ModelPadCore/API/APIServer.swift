@@ -48,7 +48,7 @@ public final class APIServer: @unchecked Sendable {
 
         let opt = ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR)
         channel = try bootstrap
-            .childChannelOption(opt, value: 1)
+            .serverChannelOption(opt, value: 1)
             .bind(host: host, port: port)
             .wait()
     }

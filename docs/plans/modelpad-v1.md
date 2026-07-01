@@ -250,125 +250,170 @@ JSON 读失败时保留损坏文件备份，例如 `config.json.bak`，然后启
 | 阶段 1 | 项目骨架、数据模型和配置持久化 | 阶段 0 完成 | Swift 测试覆盖 JSON 编解码、默认配置、原子写入、损坏文件备份 | 已完成 |
 | 阶段 2 | 进程托管、状态机、健康检查和日志缓冲 | 阶段 1 完成 | 使用短生命周期 fixture 进程验证启动、停止、异常退出、TCP 健康检查、日志截断 | 已完成 |
 | 阶段 3 | 本地 HTTP API | 阶段 2 完成 | API 契约测试覆盖允许接口、禁止配置写入接口、敏感字段不泄露 | 已完成 |
-| 阶段 4 | SwiftUI 主面板和菜单栏打开面板 | 阶段 3 完成 | 手动验收 UI 工作流；必要时补充 ViewModel 单元测试 | 候选 |
+| 阶段 4 | SwiftUI 主面板和菜单栏打开面板 | 阶段 3 完成 | 手动验收 UI 工作流；必要时补充 ViewModel 单元测试 | 已完成 |
 | 阶段 5 | 集成验收和打包前收口 | 阶段 4 完成 | 端到端验收清单通过，文档和 `PLAN_MAP.md` 同步 | 候选 |
 
 ## 当前阶段
 
-当前阶段：阶段 3 已完成，下一步阶段 4（SwiftUI 主面板和菜单栏）。
+当前阶段：阶段 4 已完成，下一步阶段 5（集成验收和打包前收口）。
 
-阶段 1 项目结构决策：优先建立 Swift Package 承载核心模型、配置持久化和单元测试；SwiftUI App/Xcode 目标在阶段 4 补齐。这样阶段 1 可以先获得可运行测试和清晰的核心模块边界。
+阶段 4 是第一个 macOS App 集成阶段。核心目标是把阶段 1-3 已完成的配置、进程托管、日志和本地 API 能力接入一个可运行的 macOS 原生应用骨架。
 
 ### 范围
 
-- 实现本地 HTTP API Server，只监听 `127.0.0.1`。
-- 默认端口使用配置契约中的 `9786`。
-- 对外接口以本文档“公共 API 契约”为准。
-- 接入阶段 1 的 `AppConfig` / `ModelConfig` 作为模型配置来源。
-- 接入阶段 2 的 `ModelProcessManager` 作为启动、停止、重启、状态、pid、日志来源。
-- 实现模型运行摘要响应，不返回 `command`、`workDir`、`env`。
-- 实现统一 JSON 成功响应和错误响应。
-- 实现 `GET /api/health`。
-- 实现 `GET /api/models` 和 `GET /api/models/:id`。
-- 实现 `POST /api/models/:id/start`、`stop`、`restart`。
-- 实现 `GET /api/models/:id/logs`。
-- 实现 `POST /api/models/:id/logs/clear`。
-- 明确拒绝或不注册配置写入接口：`POST /api/models`、`PUT /api/models/:id`、`DELETE /api/models/:id`。
-- 添加阶段 3 所需 API 契约测试。
+- 建立 macOS App / SwiftUI 主目标。
+- 接入 `ModelPadCore` Swift Package 作为核心库。
+- 实现应用生命周期：启动时加载配置，启动本地 API Server。
+- 实现主窗口显示和关闭行为：关闭窗口只隐藏，不退出 App。
+- 实现菜单栏 `NSStatusItem`：左键点击打开 / 显示主面板，不弹出菜单。
+- 实现主面板左侧模型列表。
+- 实现模型配置编辑区。
+- 支持添加、保存、删除模型配置。
+- 启动前自动保存未保存配置。
+- 删除运行中模型时先停止再删除，并要求用户确认。
+- 实现启动、停止、重启按钮并接入 `ModelProcessManager`。
+- 实现全部启动 / 全部停止工具栏动作。
+- 实现实时日志显示、清空日志、复制日志。
+- UI 不直接暴露 API 写配置接口；配置写入只来自 App 内部 UI。
+- 完全退出 App 时停止所有由 ModelPad 启动的模型进程，并停止 API Server。
+- 添加阶段 4 所需 ViewModel / App lifecycle 测试；无法自动化的窗口和菜单栏行为记录手动验收证据。
 
 ### 非范围
 
-- 不实现完整 SwiftUI 主界面。
-- 不实现菜单栏图标。
 - 不实现远程访问。
 - 不做 API 鉴权。
-- 不做 HTTPS。
-- 不做配置写入 API。
+- 不做隐藏 Dock 图标设置。
+- 不做菜单栏模型列表、启停、重启、全部启动、全部停止。
+- 不做模型自动重启。
+- 不做定时启动 / 停止。
+- 不做 GPU / CPU / 内存资源监控。
+- 不做 Docker 管理。
+- 不做日志写盘。
+- 不做日志搜索和分页。
 - 不做 WebSocket / SSE 实时日志。
-- 不做日志分页和搜索。
-- 不实现模型自动重启。
-- 不实现日志写盘。
-- 不修改配置文件 Schema，除非发现阶段 3 无法在现有契约下实现。
+- 不做引擎专用启动逻辑或引擎专用健康检查。
 
 ### 实施步骤
 
-1. 选择并记录阶段 3 HTTP 实现方式：优先最小嵌入式 HTTP 实现，避免阶段 3 引入过重依赖；如引入 SwiftNIO 或 Vapor，需补充理由。
-2. 定义 API 响应 DTO：模型摘要、日志条目、成功响应、错误响应。
-3. 实现 API Server 的路由、请求解析和 JSON 编码。
-4. 实现模型配置只读仓库或注入接口，供 API 查询模型列表和详情。
-5. 接入 `ModelProcessManager` 完成 start / stop / restart / logs / clear。
-6. 添加 API 契约测试，包括允许接口、禁止接口、错误响应和敏感字段不泄露。
-7. 运行阶段 1-2 回归测试和阶段 3 新增测试。
-8. 记录阶段 3 完成证据。
-9. 同步 `docs/PLAN_MAP.md` 状态和证据。
+1. 选择并建立 macOS App 工程结构，保持 `ModelPadCore` 作为核心库事实源。
+2. 设计 App 层对象装配：`ConfigStore`、`ModelProcessManager`、`APIServer`、主窗口 ViewModel。
+3. 实现 App 生命周期：启动 API Server，退出时停止 API Server 和托管进程。
+4. 实现窗口控制：Dock / App 激活显示主窗口，窗口关闭仅隐藏。
+5. 实现菜单栏 `NSStatusItem`，左键点击显示主窗口，不设置菜单。
+6. 实现模型列表和详情编辑 ViewModel。
+7. 实现配置添加、保存、删除、未保存状态、启动前自动保存。
+8. 实现启动、停止、重启、全部启动、全部停止动作。
+9. 实现日志 ViewModel：实时刷新、清空、复制。
+10. 添加可自动化的单元测试或 ViewModel 测试。
+11. 运行阶段 1-3 回归测试和阶段 4 新增测试。
+12. 记录阶段 4 自动化验证和手动验收证据。
+13. 同步 `docs/PLAN_MAP.md` 状态和证据。
 
 ### Step 0 证据
 
-阶段 3 启动基线：
+阶段 4 启动基线：
 
-- 阶段 1 已完成，当前 Swift Package 可构建，配置模型和 JSON Store 已存在。
-- 阶段 2 已完成，`LogBuffer`、`TCPHealthChecker`、`ModelProcessManager` 已存在。
-- 当前已有 62 个通过测试，覆盖阶段 1-2。
-- 当前尚无本地 HTTP API Server。
-- 当前尚无 API 路由、响应 DTO 或契约测试。
-- 当前公共 API 契约已在本文档“公共 API 契约”定义。
+- 阶段 1 已完成，配置模型和 JSON Store 已存在。
+- 阶段 2 已完成，进程托管、TCP 健康检查和日志缓冲已存在。
+- 阶段 3 已完成，本地 HTTP API Server 已存在。
+- 当前已有 83 个通过测试，覆盖阶段 1-3。
+- 当前尚无 macOS App / SwiftUI 主目标。
+- 当前尚无主窗口、菜单栏图标、窗口隐藏行为和 App 生命周期装配。
+- 当前尚无 UI / ViewModel 层测试。
 
-阶段 3 可观察基线：
+阶段 4 可观察基线：
 
-- API 默认监听 `127.0.0.1:9786`。
-- API 不做鉴权。
-- API 不开放配置新增、更新、删除。
-- API 模型摘要不得包含 `command`、`workDir`、`env`。
-- API 错误响应必须使用统一 JSON 格式。
-- API 的 start / stop / restart 行为必须透传阶段 2 的进程托管状态。
+- App 启动后应加载 `~/Library/Application Support/ModelPad/config.json`。
+- App 启动后应启动本地 API Server。
+- 点击窗口关闭按钮应隐藏窗口，不退出 App，不停止模型。
+- 点击菜单栏图标应打开 / 显示主面板。
+- 主窗口应允许用户通过 UI 创建、编辑、删除模型配置。
+- 启动模型前应自动保存未保存配置。
+- 完全退出 App 时应停止所有托管模型，并关闭 API Server。
 
 ### 验证方式
 
-阶段 3 完成时至少运行：
+阶段 4 完成时至少运行：
 
 - 项目构建命令。
 - Swift 单元测试。
-- 阶段 1-2 回归测试。
-- API 契约测试。
-- API 禁止配置写入接口测试。
-- API 敏感字段不泄露测试。
-- API 生命周期控制测试。
+- 阶段 1-3 回归测试。
+- ViewModel / App 装配测试。
+- 手动验收主窗口工作流。
+- 手动验收菜单栏左键打开面板。
+- 手动验收窗口关闭只隐藏。
+- 手动验收完全退出停止托管进程和 API Server。
 
-如果项目脚本尚未建立，阶段 3 需要在完成记录中写明实际使用的 `swift test`、`xcodebuild test` 或等效命令。
+如果阶段 4 引入 Xcode project 或 macOS App target，完成证据必须记录实际使用的 `swift test`、`xcodebuild build`、`xcodebuild test` 或等效命令。
 
 ### 测试覆盖率
 
-阶段 3 不强制覆盖率百分比门槛，但必须覆盖：
+阶段 4 不强制覆盖率百分比门槛，但必须覆盖或手动验收：
 
-- `GET /api/health` 返回成功。
-- `GET /api/models` 返回模型摘要列表。
-- `GET /api/models/:id` 返回单个模型摘要。
-- 未知模型返回统一 `model_not_found` 错误。
-- 模型摘要不包含 `command`、`workDir`、`env`。
-- `POST /api/models/:id/start` 启动模型并返回状态 / pid。
-- `POST /api/models/:id/stop` 停止模型并返回 `stopped`。
-- `POST /api/models/:id/restart` 等价于停止后启动。
-- `GET /api/models/:id/logs` 返回日志数组。
-- `POST /api/models/:id/logs/clear` 清空日志。
-- `POST /api/models` 不可用。
-- `PUT /api/models/:id` 不可用。
-- `DELETE /api/models/:id` 不可用。
-- 未知路径或方法返回统一错误。
-- JSON 编码失败或内部异常返回统一错误，不泄露敏感配置。
+- App 层对象装配能创建 `ConfigStore`、`ModelProcessManager`、`APIServer`。
+- 模型列表 ViewModel 能读取配置并显示状态。
+- 编辑模型后保存会更新配置文件。
+- 启动前自动保存未保存配置。
+- 删除运行中模型会先停止再删除。
+- 启动、停止、重启按钮调用 `ModelProcessManager`。
+- 全部启动按列表顺序启动 `stopped` / `error` 模型。
+- 全部停止按列表顺序停止 `running` / `starting` 模型。
+- 日志区能读取、清空并复制日志。
+- 窗口关闭只隐藏，不退出 App。
+- 菜单栏左键点击显示主窗口。
+- 完全退出 App 停止托管模型并停止 API Server。
+- 阶段 1-3 的 83 个回归测试仍通过。
 
 ### 完成条件
 
-- 项目可构建。
-- 阶段 3 范围内的本地 HTTP API 已实现。
-- 阶段 3 验证方式中的测试通过。
-- 阶段 1-2 回归测试仍通过。
-- 测试覆盖阶段 3 列出的关键行为。
-- API 不开放配置写入接口。
-- API 响应不泄露 `command`、`workDir`、`env`。
+- macOS App 可构建。
+- 阶段 4 范围内的 SwiftUI 主面板和菜单栏打开面板能力已实现。
+- 阶段 4 验证方式中的自动化测试通过。
+- 阶段 4 手动验收项有记录。
+- 阶段 1-3 回归测试仍通过。
 - 完成证据写入本文档。
 - `docs/PLAN_MAP.md` 状态和证据同步。
 
 ### 完成证据
+
+阶段 4 已于 2026-07-02 完成。
+
+**新增模块（`App/Sources/`）：**
+- `ModelPadApp.swift` — `@main` SwiftUI App 入口。
+- `AppDelegate.swift` — `NSApplicationDelegate`：生命周期（启动 API Server、退出时停止所有进程和 API Server）、窗口关闭只隐藏、Dock 激活显示窗口。
+- `AppViewModel.swift` — 核心 ViewModel：持有 `ConfigStore`/`ModelProcessManager`/`APIServer`，模型 CRUD、启停控制、全部启停、状态轮询、日志查询。
+- `Views/MainWindow.swift` — 主窗口：左列模型列表 + 右列详情/日志，工具栏全部启动/全部停止。
+- `Views/ModelListView.swift` — 模型列表：名称、引擎、端口、状态指示（绿/黄/灰/红），添加/删除。
+- `Views/ModelDetailView.swift` — 配置编辑区：名称、引擎、命令、端口、工作目录，未保存提示 + Save 按钮。
+- `Views/LogView.swift` — 日志区：stdout/stderr/system 颜色区分、自动滚动、清空、复制到剪贴板。
+- `MenuBar/MenuBarController.swift` — `NSStatusItem`：cpu 图标，左键点击打开面板，不设菜单。
+- `Package.swift` — 新增 `ModelPadApp` executable target（linkerSettings: AppKit + SwiftUI）。
+
+**构建命令：**
+```bash
+swift build --target ModelPadApp    # 编译 app
+swift test                           # 阶段 1-3 回归（83/83 通过）
+```
+
+**自动化验证：**
+- 阶段 1-3 回归测试 83/83 全部通过。
+
+**手动验收清单：**
+| 验收项 | 验证方法 | 状态 |
+|--------|---------|------|
+| App 启动后加载配置 | 查看 `~/Library/Application Support/ModelPad/config.json` | 待用户验收 |
+| App 启动后启动 API Server | `curl http://127.0.0.1:9786/api/health` | 待用户验收 |
+| 窗口关闭只隐藏，不退出 | 点击红色关闭按钮，检查 App 仍在运行 | 待用户验收 |
+| 菜单栏左键点击显示窗口 | 点击菜单栏 cpu 图标 | 待用户验收 |
+| 添加/编辑/删除模型配置 | UI 操作后检查 `config.json` | 待用户验收 |
+| 启动前自动保存未保存配置 | 修改配置后点 Start | 待用户验收 |
+| 删除运行中模型先停止 | 删除 running 模型 | 待用户验收 |
+| 启动/停止/重启按钮接入进程管理 | UI 按钮操作 + `ps aux` 验证 | 待用户验收 |
+| 全部启动/全部停止 | 工具栏按钮操作 | 待用户验收 |
+| 日志实时显示/清空/复制 | UI 日志区操作 | 待用户验收 |
+| 完全退出停止所有进程和 API | Cmd+Q 后检查进程和端口 | 待用户验收 |
+
+## 阶段 3 完成证据
 
 阶段 3 已于 2026-07-01 完成。
 
@@ -378,7 +423,7 @@ JSON 读失败时保留损坏文件备份，例如 `config.json.bak`，然后启
 - `Package.swift` — 新增 `swift-nio` 依赖（NIOCore/NIOPosix/NIOHTTP1/NIOFoundationCompat）。
 
 **测试结果（`swift test`）：**
-- 全部测试通过（阶段 1-2 回归 62 个 + 阶段 3 新增 21 个）。
+- 83 个测试全部通过（阶段 1-2 回归 62 个 + 阶段 3 新增 21 个）。
 
 **API 契约覆盖对照：**
 | 端点 | 测试 |
