@@ -3,6 +3,8 @@ import Testing
 
 @testable import ModelPadCore
 
+@Suite(.serialized) struct TCPHealthCheckerTests {
+
 // MARK: - 可连接
 
 @Test("对监听端口返回 true")
@@ -65,3 +67,5 @@ func defaultTimeoutIs30() {
     #expect(result == false)
     #expect(elapsed < 2)
 }
+
+} // TCPHealthCheckerTests

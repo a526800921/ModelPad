@@ -46,6 +46,8 @@ func saveTestModel(named name: String, command: String, port: Int? = nil, to sto
     return config
 }
 
+@Suite(.serialized) struct APIContractTests {
+
 // MARK: - GET /api/health
 
 @Test("GET /api/health 返回 ok:true")
@@ -177,6 +179,56 @@ func listModelsExcludesSensitiveFields() async throws {
     #expect(m?["command"] == nil)
     #expect(m?["workDir"] == nil)
     #expect(m?["env"] == nil)
+}
+
+// MARK: - 未知模型统一错误
+
+@Test("POST /api/models/:id/stop 未知模型返回 model_not_found")
+func stopUnknownModel() async throws {
+    let (server, _, _, port) = try makeTestServer()
+    try server.start()
+    defer { try? server.stop() }
+
+    let (status, json) = try await apiRequest(
+        method: "POST",
+        path: "/api/models/00000000-0000-0000-0000-000000000000/stop",
+        port: port
+    )
+    #expect(status == 404)
+    #expect(json["ok"] as? Bool == false)
+    #expect((json["error"] as? [String: Any])?["code"] as? String == "model_not_found")
+}
+
+@Test("GET /api/models/:id/logs 未知模型返回 model_not_found")
+func logsUnknownModel() async throws {
+    let (server, _, _, port) = try makeTestServer()
+    try server.start()
+    defer { try? server.stop() }
+
+    let (status, json) = try await apiRequest(
+        method: "GET",
+        path: "/api/models/00000000-0000-0000-0000-000000000000/logs",
+        port: port
+    )
+    #expect(status == 404)
+    #expect(json["ok"] as? Bool == false)
+    #expect((json["error"] as? [String: Any])?["code"] as? String == "model_not_found")
+}
+
+@Test("POST /api/models/:id/logs/clear 未知模型返回 model_not_found")
+func clearLogsUnknownModel() async throws {
+    let (server, _, _, port) = try makeTestServer()
+    try server.start()
+    defer { try? server.stop() }
+
+    let (status, json) = try await apiRequest(
+        method: "POST",
+        path: "/api/models/00000000-0000-0000-0000-000000000000/logs/clear",
+        port: port
+    )
+    #expect(status == 404)
+    #expect(json["ok"] as? Bool == false)
+    #expect((json["error"] as? [String: Any])?["code"] as? String == "model_not_found")
 }
 
 // MARK: - 禁止的配置写入接口
@@ -356,3 +408,5 @@ func errorResponseFormat() async throws {
     #expect(error?["code"] is String)
     #expect(error?["message"] is String)
 }
+
+} // APIContractTests

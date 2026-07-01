@@ -216,7 +216,8 @@ private final class APIHandler: ChannelInboundHandler {
     }
 
     private func handleStop(id: String) -> APIResponse {
-        guard let uuid = UUID(uuidString: id) else {
+        guard let uuid = UUID(uuidString: id),
+              findModel(id: uuid) != nil else {
             return .error(ErrorResponse(code: "model_not_found", message: "Model not found"))
         }
         _ = processManager.stop(modelId: uuid)
@@ -238,7 +239,8 @@ private final class APIHandler: ChannelInboundHandler {
     }
 
     private func handleGetLogs(id: String) -> APIResponse {
-        guard let uuid = UUID(uuidString: id) else {
+        guard let uuid = UUID(uuidString: id),
+              findModel(id: uuid) != nil else {
             return .error(ErrorResponse(code: "model_not_found", message: "Model not found"))
         }
         let logs = processManager.logs(for: uuid)
@@ -246,7 +248,8 @@ private final class APIHandler: ChannelInboundHandler {
     }
 
     private func handleClearLogs(id: String) -> APIResponse {
-        guard let uuid = UUID(uuidString: id) else {
+        guard let uuid = UUID(uuidString: id),
+              findModel(id: uuid) != nil else {
             return .error(ErrorResponse(code: "model_not_found", message: "Model not found"))
         }
         processManager.clearLogs(for: uuid)

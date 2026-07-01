@@ -24,6 +24,8 @@ func makeTestConfig(
     )
 }
 
+@Suite(.serialized) struct ModelProcessManagerTests {
+
 // MARK: - 无端口启动
 
 @Test("无端口命令启动成功后进入 running")
@@ -355,3 +357,5 @@ func envInjection() throws {
     #expect(logs.contains(where: { $0.message == "injected-value" }),
             "环境变量应被注入并可在命令中读取")
 }
+
+} // ModelProcessManagerTests

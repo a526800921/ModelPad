@@ -393,6 +393,7 @@ JSON 读失败时保留损坏文件备份，例如 `config.json.bak`，然后启
 | `GET /api/models/:id/logs` | `logsViaAPI` |
 | `POST /api/models/:id/logs/clear` | `clearLogsViaAPI` |
 | 错误格式 | `errorResponseFormat` |
+| 未知模型 stop/logs/clear 返回错误 | `stopUnknownModel`, `logsUnknownModel`, `clearLogsUnknownModel` |
 | 禁止配置写入接口 | `postModelsDisallowed`, `putModelDisallowed`, `deleteModelDisallowed` |
 
 **HTTP 选型理由：**
