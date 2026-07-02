@@ -213,6 +213,8 @@ public final class AppViewModel: ObservableObject {
         }
         statusMessages = msgs
         pids = ps
+        // 模型状态变化后自适应调整轮询频率
+        updateRefreshTimer()
     }
 
     /// 是否有模型正在运行或启动中。

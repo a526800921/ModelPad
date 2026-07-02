@@ -111,6 +111,10 @@ public final class ModelProcessManager: @unchecked Sendable {
                 return
             }
 
+            // 无论手动/异常退出，先关闭管道避免 readabilityHandler 死循环
+            currentCtx.stdoutPipe.fileHandleForReading.readabilityHandler = nil
+            currentCtx.stderrPipe.fileHandleForReading.readabilityHandler = nil
+
             if currentCtx.isManualStop {
                 // 手动停止，状态已在 stop() 中设置
                 self.lock.unlock()
@@ -223,6 +227,9 @@ public final class ModelProcessManager: @unchecked Sendable {
         lock.lock()
         ctx.status = .stopped
         ctx.logBuffer.append(stream: .system, message: "[\(ISO8601DateFormatter().string(from: Date()))] model stopped")
+        // 关闭管道监听防止死循环
+        ctx.stdoutPipe.fileHandleForReading.readabilityHandler = nil
+        ctx.stderrPipe.fileHandleForReading.readabilityHandler = nil
         lock.unlock()
 
         return .stopped
@@ -273,11 +280,16 @@ public final class ModelProcessManager: @unchecked Sendable {
 
     // MARK: - 内部
 
-    /// 异步捕获管道输出。
+    /// 异步捕获管道输出。EOF 时自动清理 readabilityHandler 防止死循环。
     private func captureOutput(pipe: Pipe, stream: LogStream, buffer: LogBuffer) {
         pipe.fileHandleForReading.readabilityHandler = { handle in
             let data = handle.availableData
-            guard !data.isEmpty, let text = String(data: data, encoding: .utf8) else { return }
+            guard !data.isEmpty else {
+                // EOF：写端已关闭，停止监听防止死循环
+                handle.readabilityHandler = nil
+                return
+            }
+            guard let text = String(data: data, encoding: .utf8) else { return }
 
             // 按行分割写入日志缓冲
             let lines = text.split(separator: "\n", omittingEmptySubsequences: false)
