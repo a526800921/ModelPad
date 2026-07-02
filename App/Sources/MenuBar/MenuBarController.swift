@@ -28,17 +28,21 @@ public final class MenuBarController {
 
         // 右键点击 → 弹出菜单（系统自动处理右键弹出 menu）
         let menu = NSMenu()
-        menu.addItem(NSMenuItem(
+        let showItem = NSMenuItem(
             title: "显示面板",
             action: #selector(showPanel),
             keyEquivalent: ""
-        ))
+        )
+        showItem.target = self
+        menu.addItem(showItem)
         menu.addItem(NSMenuItem.separator())
-        menu.addItem(NSMenuItem(
+        let quitItem = NSMenuItem(
             title: "退出",
             action: #selector(quitApp),
             keyEquivalent: ""
-        ))
+        )
+        quitItem.target = self
+        menu.addItem(quitItem)
         statusItem?.menu = menu
     }
 
