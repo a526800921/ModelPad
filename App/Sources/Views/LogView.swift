@@ -48,6 +48,12 @@ public struct LogView: View {
                 }
             }
         }
+        .onAppear {
+            logs = viewModel.logs(for: modelId)
+        }
+        .onChange(of: modelId) { _, newId in
+            logs = viewModel.logs(for: newId)
+        }
         .onReceive(timer) { _ in
             logs = viewModel.logs(for: modelId)
         }

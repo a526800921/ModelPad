@@ -129,40 +129,58 @@ public final class AppViewModel: ObservableObject {
     public func startModel(_ id: UUID) {
         autoSaveBeforeStart(for: id)
         guard let config = models.first(where: { $0.id == id }) else { return }
-        _ = try? processManager.start(config: config)
-        refreshStatus()
+        // 后台执行阻塞操作（TCP 健康检查等），UI 保持响应
+        let pm = processManager
+        DispatchQueue.global().async { [weak self] in
+            _ = try? pm.start(config: config)
+            DispatchQueue.main.async { self?.refreshStatus() }
+        }
     }
 
     public func stopModel(_ id: UUID) {
-        _ = processManager.stop(modelId: id)
-        refreshStatus()
+        let pm = processManager
+        DispatchQueue.global().async { [weak self] in
+            _ = pm.stop(modelId: id)
+            DispatchQueue.main.async { self?.refreshStatus() }
+        }
     }
 
     public func restartModel(_ id: UUID) {
         autoSaveBeforeStart(for: id)
         guard let config = models.first(where: { $0.id == id }) else { return }
-        _ = try? processManager.restart(modelId: id, config: config)
-        refreshStatus()
+        let pm = processManager
+        DispatchQueue.global().async { [weak self] in
+            _ = try? pm.restart(modelId: id, config: config)
+            DispatchQueue.main.async { self?.refreshStatus() }
+        }
     }
 
     public func startAllModels() {
-        for model in models {
-            let status = processManager.status(for: model.id)
-            if status == .stopped || status == .error {
-                _ = try? processManager.start(config: model)
+        let pm = processManager
+        let modelsCopy = models
+        DispatchQueue.global().async { [weak self] in
+            for model in modelsCopy {
+                let status = pm.status(for: model.id)
+                if status == .stopped || status == .error {
+                    _ = try? pm.start(config: model)
+                }
             }
+            DispatchQueue.main.async { self?.refreshStatus() }
         }
-        refreshStatus()
     }
 
     public func stopAllModels() {
-        for model in models {
-            let status = processManager.status(for: model.id)
-            if status == .running || status == .starting {
-                _ = processManager.stop(modelId: model.id)
+        let pm = processManager
+        let modelsCopy = models
+        DispatchQueue.global().async { [weak self] in
+            for model in modelsCopy {
+                let status = pm.status(for: model.id)
+                if status == .running || status == .starting {
+                    _ = pm.stop(modelId: model.id)
+                }
             }
+            DispatchQueue.main.async { self?.refreshStatus() }
         }
-        refreshStatus()
     }
 
     // MARK: - 日志

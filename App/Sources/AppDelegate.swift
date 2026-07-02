@@ -44,14 +44,38 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObjec
 
     public func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard !isTerminating else {
-            return .terminateLater
+            return .terminateNow
         }
         isTerminating = true
 
         viewModel.stopStatusRefresh()
-        viewModel.stopAllRunningProcesses()
+
+        // 所有阻塞清理全放后台线程，30s 超时兜底确保一定 reply
+        let pm = viewModel.processManager
+        let models = viewModel.models
+        let api = viewModel.apiServer
+
         DispatchQueue.global().async {
-            try? self.viewModel.apiServer.stop()
+            // 停止所有托管进程（后台线程，逐个停止）
+            for model in models {
+                let status = pm.status(for: model.id)
+                if status == .running || status == .starting {
+                    _ = pm.stop(modelId: model.id)
+                }
+            }
+
+            // 停止 API Server（可能阻塞）
+            let group = DispatchGroup()
+            group.enter()
+            DispatchQueue.global().async {
+                try? api.stop()
+                group.leave()
+            }
+
+            // 30s 总超时兜底
+            _ = group.wait(timeout: .now() + 30)
+
+            // 确保一定会 reply
             DispatchQueue.main.async {
                 sender.reply(toApplicationShouldTerminate: true)
             }

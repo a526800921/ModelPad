@@ -170,19 +170,26 @@ func makeTestViewModel() -> (AppViewModel, ConfigStore, ModelProcessManager) {
     func startAllSkipsRunning() throws {
         let (vm, _, pm) = makeTestViewModel()
 
-        // 添加两个模型
-        vm.newModel()  // stopped
-        vm.newModel()  // stopped
+        // 添加两个模型，各自设置有效命令
+        vm.newModel()
+        vm.selectModel(vm.models[0].id)
+        vm.updateEditingModel(name: "M1", command: "sleep 10")
+        vm.saveEditingModel(vm.models[0])
+
+        vm.newModel()
+        vm.selectModel(vm.models[1].id)
+        vm.updateEditingModel(name: "M2", command: "sleep 10")
+        vm.saveEditingModel(vm.models[1])
+
         let m1 = vm.models[0]
         let m2 = vm.models[1]
-
-        vm.updateEditingModel(command: "sleep 10")
 
         // 手动启动 m1
         _ = try? pm.start(config: m1)
 
-        // startAll 应只启动 m2
+        // startAll 应只启动 m2（dispatch 到后台，等待完成）
         vm.startAllModels()
+        Thread.sleep(forTimeInterval: 0.5)
 
         #expect(pm.status(for: m1.id) == .running)
         #expect(pm.status(for: m2.id) == .running)
@@ -197,7 +204,15 @@ func makeTestViewModel() -> (AppViewModel, ConfigStore, ModelProcessManager) {
         let (vm, _, pm) = makeTestViewModel()
 
         vm.newModel()
+        vm.selectModel(vm.models[0].id)
+        vm.updateEditingModel(name: "M1", command: "sleep 30")
+        vm.saveEditingModel(vm.models[0])
+
         vm.newModel()
+        vm.selectModel(vm.models[1].id)
+        vm.updateEditingModel(name: "M2", command: "sleep 30")
+        vm.saveEditingModel(vm.models[1])
+
         let m1 = vm.models[0]
         let m2 = vm.models[1]
 
@@ -205,6 +220,7 @@ func makeTestViewModel() -> (AppViewModel, ConfigStore, ModelProcessManager) {
         _ = try? pm.start(config: m1)
 
         vm.stopAllModels()
+        Thread.sleep(forTimeInterval: 0.5)
 
         #expect(pm.status(for: m1.id) == .stopped)
         #expect(pm.status(for: m2.id) == .stopped)  // 本来就 stopped
