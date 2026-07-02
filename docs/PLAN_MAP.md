@@ -17,7 +17,7 @@
 
 | 计划 | 状态 | 当前阶段 | 依赖 | 证据 |
 |---|---|---|---|---|
-| [ModelPad v1 实施计划](plans/modelpad-v1.md) | 已完成 | v1 全部阶段已完成 | - | [阶段 1-5 证据](plans/modelpad-v1.md#阶段-5-完成证据) |
+| [ModelPad v1 实施计划](plans/modelpad-v1.md) | 实施中 | 阶段 5：集成验收、菜单栏退出和空闲功耗优化 | - | 阶段 1-4 已完成；阶段 5 阻塞项见下方 |
 
 允许状态：`候选`、`设计中`、`待实施`、`实施中`、`已完成`、`已替代`、`已合并`、`已废弃`。
 
@@ -41,7 +41,8 @@
 
 | 问题 | 推荐方案 | 影响范围 | 是否阻塞当前阶段 | 状态 |
 |---|---|---|---|---|
-| - | - | - | 否 | - |
+| 阶段 5：菜单栏右键交互实现不正确（`statusItem.menu` 接管左键） | 移除 `statusItem.menu`，改用 `NSEvent.addLocalMonitorForEvents` 仅对右键弹出菜单 | `MenuBarController.swift` | 是 | 已修复，待验收 |
+| 阶段 5：空闲功耗/CPU 缺少可复查实测证据 | 在三种状态下（窗口打开、隐藏、仅菜单栏）用 `powermetrics` 或 Activity Monitor 采样至少 2 分钟 | 验收证据 | 是 | 待实测 |
 
 ## 完成证据
 
@@ -51,8 +52,8 @@
 | modelpad-v1 | 阶段 1：项目骨架、数据模型和配置持久化 | Swift Package 已建立（`Package.swift`），全部 29 个单元测试通过（2026-06-30T23:33 UTC+8）。详见 [阶段 1 完成证据](plans/modelpad-v1.md#阶段-1-完成证据)。 |
 | modelpad-v1 | 阶段 2：进程托管、状态机、健康检查和日志缓冲 | 新增 LogBuffer、TCPHealthChecker、ModelProcessManager；62 个测试全部通过（29 回归 + 33 新增，2026-06-30T23:52 UTC+8）。详见 [阶段 2 完成证据](plans/modelpad-v1.md#阶段-2-完成证据)。 |
 | modelpad-v1 | 阶段 3：本地 HTTP API | 新增 APIDTOs、APIServer（SwiftNIO）；83 个测试全部通过（62 回归 + 21 新增，2026-07-01 UTC+8）。详见 [阶段 3 完成证据](plans/modelpad-v1.md#阶段-3-完成证据)。 |
-| modelpad-v1 | 阶段 4：SwiftUI 主面板和菜单栏 | 新增 macOS App 骨架 + 10 ViewModel/装配测试；93 测试通过（83 回归 + 10 新增）；手动验收已闭环。详见 [阶段 4 完成证据](plans/modelpad-v1.md#阶段-4-完成证据)。
-| modelpad-v1 | 阶段 5：集成验收、菜单栏退出和空闲功耗优化 | 菜单栏右键退出、双窗口修复、智能降频轮询；93 测试通过；空闲功耗待用户实测。详见 [阶段 5 完成证据](plans/modelpad-v1.md#阶段-5-完成证据)。 |
+| modelpad-v1 | 阶段 4：SwiftUI 主面板和菜单栏 | 新增 macOS App 骨架 + 10 ViewModel/装配测试；93 测试通过（83 回归 + 10 新增）；手动验收已闭环。详见 [阶段 4 完成证据](plans/modelpad-v1.md#阶段-4-完成证据)。 |
+| modelpad-v1 | 阶段 5：集成验收、菜单栏退出和空闲功耗优化 | 菜单栏左键/右键交互已修复（`NSEvent.addLocalMonitorForEvents` 方案，待用户验收）；智能降频轮询已实现；构建+93 测试通过。**阻塞项**：空闲功耗无实测证据。详见 [阶段 5 当前状态](plans/modelpad-v1.md#当前阶段)。 |
 
 ## 阶段 5 输入
 
