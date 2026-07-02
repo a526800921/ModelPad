@@ -87,6 +87,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObjec
     // MARK: - 窗口控制
 
     public func showMainWindow() {
+        viewModel.isWindowVisible = true
         if let window = mainWindow {
             window.makeKeyAndOrderFront(nil)
         } else {
@@ -113,7 +114,8 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObjec
 
 extension AppDelegate: NSWindowDelegate {
     public func windowShouldClose(_ sender: NSWindow) -> Bool {
-        // 关闭只隐藏
+        // 关闭只隐藏，暂停状态刷新
+        viewModel.isWindowVisible = false
         sender.orderOut(nil)
         return false
     }

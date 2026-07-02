@@ -195,6 +195,15 @@ public final class AppViewModel: ObservableObject {
 
     // MARK: - 状态刷新
 
+    /// 窗口是否可见。隐藏时暂停刷新。
+    public var isWindowVisible = true {
+        didSet {
+            if isWindowVisible != oldValue {
+                updateRefreshTimer()
+            }
+        }
+    }
+
     public func refreshStatus() {
         var msgs: [UUID: ModelStatus] = [:]
         var ps: [UUID: Int32?] = [:]
@@ -206,8 +215,28 @@ public final class AppViewModel: ObservableObject {
         pids = ps
     }
 
+    /// 是否有模型正在运行或启动中。
+    private var hasActiveModels: Bool {
+        models.contains { model in
+            let s = processManager.status(for: model.id)
+            return s == .running || s == .starting
+        }
+    }
+
     private func startStatusRefresh() {
-        refreshTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
+        updateRefreshTimer()
+    }
+
+    private func updateRefreshTimer() {
+        refreshTimer?.invalidate()
+        refreshTimer = nil
+
+        // 窗口隐藏时完全暂停轮询
+        guard isWindowVisible else { return }
+
+        // 无运行模型时降频到 10s，有运行模型时 2s
+        let interval: TimeInterval = hasActiveModels ? 2.0 : 10.0
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 self?.refreshStatus()
             }
