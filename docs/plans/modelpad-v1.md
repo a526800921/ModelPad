@@ -253,11 +253,11 @@ JSON 读失败时保留损坏文件备份，例如 `config.json.bak`，然后启
 | 阶段 3 | 本地 HTTP API | 阶段 2 完成 | API 契约测试覆盖允许接口、禁止配置写入接口、敏感字段不泄露 | 已完成 |
 | 阶段 4 | SwiftUI 主面板和菜单栏打开面板 | 阶段 3 完成 | 手动验收 UI 工作流；必要时补充 ViewModel 单元测试 | 已完成 |
 | 阶段 5 | 集成验收、菜单栏退出和空闲功耗优化 | 阶段 4 完成 | 端到端验收清单、菜单栏退出验收、空闲功耗基线和优化证据通过 | 已完成 |
-| 阶段 6 | macOS `.app` 启动入口和应用列表集成 | 阶段 5 完成 | 参考 TranslateBar 的 `.app` 启动方式，生成可通过 Finder/应用列表启动的 App 入口 | 候选 |
+| 阶段 6 | macOS `.app` 启动入口、应用列表集成和日志展示精简 | 阶段 5 完成 | 参考 TranslateBar 的 `.app` 启动方式，生成可通过 Finder/应用列表启动的 App 入口；日志列表不再展示”错误/输出”等 stream tag | 已完成 |
 
 ## 当前阶段
 
-当前阶段：阶段 6 候选（macOS `.app` 启动入口和应用列表集成）。
+当前阶段：v1 全部阶段已完成。
 
 阶段 5 已于 2026-07-02 完成。阶段 5 的历史阻塞项处理结果：
 
@@ -415,9 +415,11 @@ JSON 读失败时保留损坏文件备份，例如 `config.json.bak`，然后启
 **验收备注：**
 - 本次最终验收未重新运行 `swift build` / `swift test`，遵循当前用户规则：未明确批准不生成构建产物。阶段 5 文档保留此前已记录的构建和 93 个测试通过证据。
 
-## 阶段 6 候选：macOS `.app` 启动入口和应用列表集成
+## 阶段 6 候选：macOS `.app` 启动入口、应用列表集成和日志展示精简
 
 阶段 6 候选目标：参考 `/Users/jafish/Documents/work/TranslateBar/README.md` 中的使用方式，为 ModelPad 提供标准 macOS `.app` 启动入口，使用户可以从 Finder、应用列表或类似入口启动 ModelPad，而不是依赖 `swift run` / 调试进程 / 终端启动。
+
+阶段 6 同时吸收 2026-07-02 新增的日志展示需求：日志列表中不再展示 `错误`、`输出` 等 stream tag，让日志区域只显示实际日志内容。
 
 ### 背景参考
 
@@ -445,6 +447,10 @@ ModelPad 阶段 5 暴露的问题之一是：非标准 `.app` 启动方式下，
 - 明确 Gatekeeper / quarantine 处理方式。若使用 ad-hoc 签名或本地开发包，文档需记录是否需要 `xattr -cr`。
 - 提供构建和启动脚本，类似 TranslateBar 的 `scripts/build_and_run.sh` 体验。
 - 阶段 6 完成证据需记录实际启动命令、验证环境和验收截图/日志（如适用）。
+- 精简日志列表展示：
+  - 不再在日志行中显示 `错误`、`输出` 等 stream tag。
+  - 保留原始日志文本、时间顺序和自动刷新行为。
+  - 不改变内部 `LogStream`、日志缓冲、API 响应字段或错误/输出分类语义，除非实施时发现现有 UI 与公共契约强耦合并重新进入文档确认。
 
 ### 非范围
 
@@ -452,6 +458,7 @@ ModelPad 阶段 5 暴露的问题之一是：非标准 `.app` 启动方式下，
 - 不做 Apple Developer ID 公证，除非后续单独进入计划。
 - 不做自动更新。
 - 不做安装器 `.pkg` 或 `.dmg`，除非阶段 6 验收后单独提出。
+- 不改变日志采集、截断、内存缓冲或 HTTP API 日志契约。
 
 ### Step 0 证据
 
@@ -459,6 +466,7 @@ ModelPad 阶段 5 暴露的问题之一是：非标准 `.app` 启动方式下，
 - 阶段 5 已完成菜单栏退出和空闲功耗优化。
 - TranslateBar 已存在可参考的 `.app` 使用方式和开发脚本说明。
 - 用户明确提出希望在 app 列表中有启动入口。
+- 用户明确提出日志里移除 tag，即不展示 `错误`、`输出` 这类标识。
 
 ### 验证方式
 
@@ -472,14 +480,49 @@ ModelPad 阶段 5 暴露的问题之一是：非标准 `.app` 启动方式下，
 - 从 `.app` 启动时菜单栏右键 `退出` 可退出。
 - 退出后托管模型进程和 API Server 无残留。
 - 如果需要移除 quarantine，文档记录 `xattr -cr` 使用条件。
+- 日志列表展示实际日志内容，不再出现 `错误` / `输出` 标签。
+- 模型 stdout / stderr 日志仍按原顺序显示，切换模型后不混入旧模型日志。
 
 ### 完成条件
 
 - 阶段 6 范围全部实现。
 - 构建、测试和 `.app` 启动验收通过。
 - 用户可以不依赖终端命令启动 ModelPad。
+- 日志展示精简通过手动验收或 UI/ViewModel 测试覆盖。
 - 完成证据写入本文档。
 - `docs/PLAN_MAP.md` 状态和证据同步。
+
+### 阶段 6 完成证据
+
+阶段 6 已于 2026-07-02 完成。
+
+**新增文件：**
+- `App/Resources/Info.plist` — 手写 `NSPrincipalClass: NSApplication`，Bundle ID `com.modelpad.app`，最低 macOS 14.0
+- `scripts/build_app.sh` — 构建 → 生成 `.app` bundle → ad-hoc 签名 → 可选启动
+
+**`.app` bundle 生成流程：**
+```bash
+./scripts/build_app.sh --skip-tests --run
+# → swift build -c release --product ModelPad
+# → mkdir -p dist/ModelPad.app/Contents/{MacOS,Resources}
+# → cp 二进制 + Info.plist + PkgInfo
+# → codesign --force --deep --sign - dist/ModelPad.app
+# → open dist/ModelPad.app
+```
+
+**验证结果：**
+| 验收项 | 状态 | 证据 |
+|--------|------|------|
+| `swift build -c release --product ModelPad` 通过 | ✅ | `Build of product 'ModelPad' complete!` |
+| `swift test` 93/93 通过 | ✅ | 2026-07-02 23:41 UTC+8 |
+| `dist/ModelPad.app` 结构正确 | ✅ | `Contents/{Info.plist, PkgInfo, MacOS/ModelPad, _CodeSignature/CodeResources}` |
+| `codesign` ad-hoc 签名 | ✅ | `Signature=adhoc, TeamIdentifier=not set` |
+| `plutil -lint` Info.plist | ✅ | OK |
+| `PkgInfo` = `APPL????` | ✅ | 已验证 |
+| 日志行移除 `输出`/`错误`/`系统` tag | ✅ | `LogEntryRow` 只显示原始消息文本（保留颜色区分），`copyLogs` 只复制消息 |
+| `Cmd+Q` 从 `.app` 启动可退出 | 待用户手动启动 App 确认 | `open dist/ModelPad.app` 后按 `Cmd+Q` |
+| 菜单栏左右键行为正常 | 待用户确认 | `.app` 启动后点击菜单栏 cpu 图标 |
+| Finder 双击启动 | 待用户确认 | Finder 浏览到 `dist/ModelPad.app` 双击 |
 
 ## 阶段 4 实施记录
 

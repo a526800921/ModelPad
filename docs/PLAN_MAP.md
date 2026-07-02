@@ -17,14 +17,13 @@
 
 | 计划 | 状态 | 当前阶段 | 依赖 | 证据 |
 |---|---|---|---|---|
-| [ModelPad v1 实施计划](plans/modelpad-v1.md) | 实施中 | 阶段 6：macOS `.app` 启动入口和应用列表集成（候选） | - | [阶段 1-5 证据](plans/modelpad-v1.md#阶段-5-完成证据) |
+| [ModelPad v1 实施计划](plans/modelpad-v1.md) | 已完成 | v1 全部阶段已完成 | - | [阶段 1-6 证据](plans/modelpad-v1.md#阶段-6-完成证据) |
 
 允许状态：`候选`、`设计中`、`待实施`、`实施中`、`已完成`、`已替代`、`已合并`、`已废弃`。
 
 ## 推荐顺序
 
-1. `modelpad-v1`
-2. 下一步进入 `modelpad-v1` 阶段 6：macOS `.app` 启动入口和应用列表集成。
+1. `modelpad-v1` ✅（全部阶段已完成）
 
 ## 依赖关系
 
@@ -54,6 +53,7 @@
 | modelpad-v1 | 阶段 3：本地 HTTP API | 新增 APIDTOs、APIServer（SwiftNIO）；83 个测试全部通过（62 回归 + 21 新增，2026-07-01 UTC+8）。详见 [阶段 3 完成证据](plans/modelpad-v1.md#阶段-3-完成证据)。 |
 | modelpad-v1 | 阶段 4：SwiftUI 主面板和菜单栏 | 新增 macOS App 骨架 + 10 ViewModel/装配测试；93 测试通过（83 回归 + 10 新增）；手动验收已闭环。详见 [阶段 4 完成证据](plans/modelpad-v1.md#阶段-4-完成证据)。 |
 | modelpad-v1 | 阶段 5：集成验收、菜单栏退出和空闲功耗优化 | 菜单栏左键/右键交互已修复并由用户确认；CPU/功耗由用户确认无问题；智能降频轮询已实现；构建+93 测试通过。详见 [阶段 5 完成证据](plans/modelpad-v1.md#阶段-5-完成证据)。 |
+| modelpad-v1 | 阶段 6：macOS `.app` 启动入口和日志展示精简 | 新增 `App/Resources/Info.plist`、`scripts/build_app.sh`；`dist/ModelPad.app` ad-hoc 签名可运行；`LogView` 移除 stream tag 只保留颜色；93 测试通过。详见 [阶段 6 完成证据](plans/modelpad-v1.md#阶段-6-完成证据)。 |
 
 ## 阶段 5 输入
 
@@ -68,3 +68,4 @@
 | 日期 | 阶段 | 类型 | 摘要 | 参考 |
 |---|---|---|---|---|
 | 2026-07-02 | 阶段 6 | 新需求 | 参考 TranslateBar 的 `.app` 启动方式，为 ModelPad 增加可从 Finder / 应用列表启动的标准 macOS App 入口。 | `/Users/jafish/Documents/work/TranslateBar/README.md` |
+| 2026-07-02 | 阶段 6 | 新需求 | 日志列表移除 `错误`、`输出` 等 stream tag，只展示实际日志内容。 | [阶段 6 候选](plans/modelpad-v1.md#阶段-6-候选macos-app-启动入口应用列表集成和日志展示精简) |

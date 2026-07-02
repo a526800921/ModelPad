@@ -60,7 +60,7 @@ public struct LogView: View {
     }
 
     private func copyLogs() {
-        let text = logs.map { "[\($0.stream.rawValue)] \($0.message)" }.joined(separator: "\n")
+        let text = logs.map { $0.message }.joined(separator: "\n")
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
     }
@@ -73,23 +73,13 @@ struct LogEntryRow: View {
 
     var body: some View {
         HStack(spacing: 4) {
-            Text(streamLabel)
-                .font(.system(size: 9, design: .monospaced))
-                .foregroundColor(streamColor)
             Text(entry.message)
                 .font(.system(size: 11, design: .monospaced))
+                .foregroundColor(streamColor)
                 .lineLimit(3)
             Spacer()
         }
         .padding(.vertical, 1)
-    }
-
-    private var streamLabel: String {
-        switch entry.stream {
-        case .stdout: return "输出"
-        case .stderr: return "错误"
-        case .system: return "系统"
-        }
     }
 
     private var streamColor: Color {
