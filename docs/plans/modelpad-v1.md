@@ -253,7 +253,7 @@ JSON 读失败时保留损坏文件备份，例如 `config.json.bak`，然后启
 | 阶段 3 | 本地 HTTP API | 阶段 2 完成 | API 契约测试覆盖允许接口、禁止配置写入接口、敏感字段不泄露 | 已完成 |
 | 阶段 4 | SwiftUI 主面板和菜单栏打开面板 | 阶段 3 完成 | 手动验收 UI 工作流；必要时补充 ViewModel 单元测试 | 已完成 |
 | 阶段 5 | 集成验收、菜单栏退出和空闲功耗优化 | 阶段 4 完成 | 端到端验收清单、菜单栏退出验收、空闲功耗基线和优化证据通过 | 已完成 |
-| 阶段 6 | macOS `.app` 启动入口、应用列表集成和日志展示精简 | 阶段 5 完成 | 参考 TranslateBar 的 `.app` 启动方式，生成可通过 Finder/应用列表启动的 App 入口；日志列表不再展示”错误/输出”等 stream tag | 已完成 |
+| 阶段 6 | macOS `.app` 启动入口、应用列表集成和日志展示精简 | 阶段 5 完成 | 参考 TranslateBar 的 `.app` 启动方式，生成可通过 Finder/应用列表启动的 App 入口；日志列表不再展示“错误/输出”等 stream tag | 已完成 |
 
 ## 当前阶段
 
@@ -498,6 +498,7 @@ ModelPad 阶段 5 暴露的问题之一是：非标准 `.app` 启动方式下，
 
 **新增文件：**
 - `App/Resources/Info.plist` — 手写 `NSPrincipalClass: NSApplication`，Bundle ID `com.modelpad.app`，最低 macOS 14.0
+- `App/Resources/ModelPad.icns` — ModelPad 自定义 macOS App 图标
 - `scripts/build_app.sh` — 构建 → 生成 `.app` bundle → ad-hoc 签名 → 可选启动
 
 **`.app` bundle 生成流程：**
@@ -505,7 +506,7 @@ ModelPad 阶段 5 暴露的问题之一是：非标准 `.app` 启动方式下，
 ./scripts/build_app.sh --skip-tests --run
 # → swift build -c release --product ModelPad
 # → mkdir -p dist/ModelPad.app/Contents/{MacOS,Resources}
-# → cp 二进制 + Info.plist + PkgInfo
+# → cp 二进制 + Info.plist + ModelPad.icns + PkgInfo
 # → codesign --force --deep --sign - dist/ModelPad.app
 # → open dist/ModelPad.app
 ```
@@ -516,13 +517,17 @@ ModelPad 阶段 5 暴露的问题之一是：非标准 `.app` 启动方式下，
 | `swift build -c release --product ModelPad` 通过 | ✅ | `Build of product 'ModelPad' complete!` |
 | `swift test` 93/93 通过 | ✅ | 2026-07-02 23:41 UTC+8 |
 | `dist/ModelPad.app` 结构正确 | ✅ | `Contents/{Info.plist, PkgInfo, MacOS/ModelPad, _CodeSignature/CodeResources}` |
+| 自定义 App 图标已打包 | ✅ | `Contents/Resources/ModelPad.icns`，`CFBundleIconFile=ModelPad` |
 | `codesign` ad-hoc 签名 | ✅ | `Signature=adhoc, TeamIdentifier=not set` |
 | `plutil -lint` Info.plist | ✅ | OK |
 | `PkgInfo` = `APPL????` | ✅ | 已验证 |
 | 日志行移除 `输出`/`错误`/`系统` tag | ✅ | `LogEntryRow` 只显示原始消息文本（保留颜色区分），`copyLogs` 只复制消息 |
-| `Cmd+Q` 从 `.app` 启动可退出 | 待用户手动启动 App 确认 | `open dist/ModelPad.app` 后按 `Cmd+Q` |
-| 菜单栏左右键行为正常 | 待用户确认 | `.app` 启动后点击菜单栏 cpu 图标 |
-| Finder 双击启动 | 待用户确认 | Finder 浏览到 `dist/ModelPad.app` 双击 |
+| `Cmd+Q` 从 `.app` 启动可退出 | ✅ | 用户已于 2026-07-02 完成手动验收 |
+| 菜单栏左右键行为正常 | ✅ | 用户已于 2026-07-02 完成手动验收 |
+| Finder 双击启动 | ✅ | 用户已于 2026-07-02 完成手动验收 |
+
+**最终手动验收：**
+- 用户已确认阶段 6 手动验收完成，包括 `.app` 启动、`Cmd+Q` 退出、菜单栏左右键交互和 Finder 双击启动。
 
 ## 阶段 4 实施记录
 

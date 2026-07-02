@@ -19,6 +19,7 @@ APP_BUNDLE="$DIST_DIR/$APP_NAME.app"
 ARCH="$(uname -m)"
 BUILD_TRIPLE="${ARCH}-apple-macosx"
 INFO_PLIST_SRC="$PROJECT_ROOT/App/Resources/Info.plist"
+ICON_SRC="$PROJECT_ROOT/App/Resources/ModelPad.icns"
 
 SKIP_TESTS=false
 DO_RUN=false
@@ -75,16 +76,20 @@ echo "  ✓ 二进制: $BINARY_SRC → Contents/MacOS/"
 cp "$INFO_PLIST_SRC" "$APP_BUNDLE/Contents/Info.plist"
 echo "  ✓ Info.plist"
 
-# Step 6: 写入 PkgInfo
+# Step 6: 复制 App 图标
+cp "$ICON_SRC" "$APP_BUNDLE/Contents/Resources/ModelPad.icns"
+echo "  ✓ App 图标: ModelPad.icns"
+
+# Step 7: 写入 PkgInfo
 echo -n "APPL????" > "$APP_BUNDLE/Contents/PkgInfo"
 echo "  ✓ PkgInfo"
 
-# Step 7: Ad-hoc 签名
+# Step 8: Ad-hoc 签名
 echo "==> 签名..."
 codesign --force --deep --sign - "$APP_BUNDLE"
 echo "  ✓ Ad-hoc 签名完成"
 
-# Step 8: 验证
+# Step 9: 验证
 echo "==> 验证..."
 echo "  Bundle 结构:"
 find "$APP_BUNDLE" -type f | sed "s|$APP_BUNDLE||" | sort
@@ -106,7 +111,7 @@ echo "若从网络下载后被 Gatekeeper 阻止:"
 echo "  xattr -cr '$APP_BUNDLE'"
 echo "  open '$APP_BUNDLE'"
 
-# Step 9: 可选启动
+# Step 10: 可选启动
 if $DO_RUN; then
     echo ""
     echo "==> 启动 App..."
