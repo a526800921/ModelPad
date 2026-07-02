@@ -36,3 +36,5 @@ Package.resolved
 *.tmp
 *.swp
 *~
+
+output

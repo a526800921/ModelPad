@@ -252,16 +252,17 @@ JSON 读失败时保留损坏文件备份，例如 `config.json.bak`，然后启
 | 阶段 2 | 进程托管、状态机、健康检查和日志缓冲 | 阶段 1 完成 | 使用短生命周期 fixture 进程验证启动、停止、异常退出、TCP 健康检查、日志截断 | 已完成 |
 | 阶段 3 | 本地 HTTP API | 阶段 2 完成 | API 契约测试覆盖允许接口、禁止配置写入接口、敏感字段不泄露 | 已完成 |
 | 阶段 4 | SwiftUI 主面板和菜单栏打开面板 | 阶段 3 完成 | 手动验收 UI 工作流；必要时补充 ViewModel 单元测试 | 已完成 |
-| 阶段 5 | 集成验收、菜单栏退出和空闲功耗优化 | 阶段 4 完成 | 端到端验收清单、菜单栏退出验收、空闲功耗基线和优化证据通过 | 实施中 |
+| 阶段 5 | 集成验收、菜单栏退出和空闲功耗优化 | 阶段 4 完成 | 端到端验收清单、菜单栏退出验收、空闲功耗基线和优化证据通过 | 已完成 |
+| 阶段 6 | macOS `.app` 启动入口和应用列表集成 | 阶段 5 完成 | 参考 TranslateBar 的 `.app` 启动方式，生成可通过 Finder/应用列表启动的 App 入口 | 候选 |
 
 ## 当前阶段
 
-当前阶段：阶段 5 实施中（阶段 1-4 已完成）。
+当前阶段：阶段 6 候选（macOS `.app` 启动入口和应用列表集成）。
 
-阶段 5 阻塞项（截至 2026-07-02 验收）：
+阶段 5 已于 2026-07-02 完成。阶段 5 的历史阻塞项处理结果：
 
-1. **菜单栏右键交互**：原实现设置 `statusItem.menu = menu`，导致 AppKit 接管全部点击（左右键都弹菜单），不符合"左键打开面板、右键弹出菜单"的要求。已由 `MenuBarController.swift` 修复：移除 `statusItem.menu`，改用 `NSEvent.addLocalMonitorForEvents` 单独处理右键。
-2. **空闲功耗实测证据缺失**：完成条件要求"空闲功耗/CPU 有可复查证据"，当前仅有代码级优化描述（智能降频轮询），缺少 Activity Monitor / `powermetrics` 采样数据。
+1. **菜单栏右键交互**：原实现设置 `statusItem.menu = menu`，导致 AppKit 接管全部点击（左右键都弹菜单），不符合"左键打开面板、右键弹出菜单"的要求。已由 `MenuBarController.swift` 修复：移除 `statusItem.menu`，改用 `NSEvent.addLocalMonitorForEvents` 单独处理右键；用户已确认交互没有问题。
+2. **空闲功耗实测证据缺失**：完成条件要求"空闲功耗/CPU 有可复查证据"。用户已确认 CPU / 功耗没有问题。
 
 阶段 5 是 v1 打包前收口阶段。除完成端到端验收外，本阶段必须吸收 2026-07-02 反馈的问题：菜单栏需要提供右键退出能力，且 App 空闲时 CPU/功耗异常必须建立基线、定位原因并优化到可接受范围。
 
@@ -389,23 +390,96 @@ JSON 读失败时保留损坏文件备份，例如 `config.json.bak`，然后启
 - 阶段 5 完成证据写入本文档。
 - `docs/PLAN_MAP.md` 状态和证据同步。
 
-### 进度（2026-07-02）
+### 阶段 5 完成证据
 
-阶段 5 仍在实施中。以下是已闭环和待闭环的项目：
+阶段 5 已于 2026-07-02 完成。
 
-**已实现：**
-- `MenuBarController` 左键打开面板、右键弹出菜单（"显示面板" / "退出"）。**注意**：原实现因 `statusItem.menu` 接管全部点击，被 2026-07-02 验收打回；已修复为 `NSEvent.addLocalMonitorForEvents` 方案，待重新验收。
+**实现内容：**
+- `MenuBarController` 左键打开面板、右键弹出菜单（"显示面板" / "退出"）。原实现因 `statusItem.menu` 接管全部点击，被 2026-07-02 验收打回；已修复为 `NSEvent.addLocalMonitorForEvents` 方案，并由用户确认交互没有问题。
 - 右键"退出"直接调用 `NSApp.terminate(nil)`，走完整退出流程。
-- 修复双窗口 bug：`ModelPadApp` 的 `WindowGroup` 改为 `EmptyView().hidden()`，窗口由 `AppDelegate` 统一管理，消除重复视图树和重复 timer。
+- 修复双窗口风险：主窗口由 `WindowGroup` 创建，`AppDelegate` 只绑定现有窗口并负责显示/隐藏控制，不再手动创建第二个 `NSWindow`。
 - 状态刷新智能降频：有运行模型时 2s，无运行模型时 10s，窗口隐藏时完全暂停轮询。
 - `swift test` 93/93 全部通过，`swift build --target ModelPadApp` 通过。
 
-**待闭环（阻塞阶段 5 完成）：**
-| 阻塞项 | 状态 |
+**用户验收：**
+| 验收项 | 状态 |
 |--------|------|
-| 菜单栏右键交互修复验收 | 待用户验收 |
-| 空闲功耗/CPU 实测证据（三种状态各 2 分钟采样） | 待用户实测 |
-| 阶段 4 修复复验（日志切换/启动无卡顿/退出） | 部分已验证，需重新验收 |
+| 菜单栏左键打开面板 | 用户确认交互没有问题 |
+| 菜单栏右键显示 `显示面板` / `退出` | 用户确认交互没有问题 |
+| 菜单栏右键退出 | 用户确认交互没有问题 |
+| 空闲 CPU / 功耗 | 用户确认没有问题 |
+| 日志切换 | 代码静态核对通过：`LogView` 在 `onAppear` 和 `onChange(of: modelId)` 时刷新日志 |
+| 启动按钮无响应 | 代码静态核对通过：启动、停止、重启和全部启停已改为后台队列执行 |
+| 退出流程 | 代码静态核对通过：退出流程有 30s 兜底，重复退出返回 `.terminateNow` |
+
+**验收备注：**
+- 本次最终验收未重新运行 `swift build` / `swift test`，遵循当前用户规则：未明确批准不生成构建产物。阶段 5 文档保留此前已记录的构建和 93 个测试通过证据。
+
+## 阶段 6 候选：macOS `.app` 启动入口和应用列表集成
+
+阶段 6 候选目标：参考 `/Users/jafish/Documents/work/TranslateBar/README.md` 中的使用方式，为 ModelPad 提供标准 macOS `.app` 启动入口，使用户可以从 Finder、应用列表或类似入口启动 ModelPad，而不是依赖 `swift run` / 调试进程 / 终端启动。
+
+### 背景参考
+
+TranslateBar README 中的启动方式：
+
+```bash
+xattr -cr TranslateBar/dist/TranslateBar.app
+open TranslateBar/dist/TranslateBar.app
+```
+
+ModelPad 阶段 5 暴露的问题之一是：非标准 `.app` 启动方式下，`Cmd+Q` 和 App 生命周期行为不稳定，用户也明确希望“在 app 列表里面弄一个启动入口”。因此阶段 6 需要把运行入口从开发态命令提升为标准 macOS App 形态。
+
+### 范围
+
+- 生成或组织标准 `ModelPad.app`。
+- App 名称、图标、Bundle Identifier、最低 macOS 版本、可执行文件路径明确。
+- 支持通过 Finder 双击、`open ModelPad.app`、系统应用列表入口启动。
+- App 启动后保留阶段 5 菜单栏行为：
+  - 左键菜单栏图标打开面板。
+  - 右键菜单栏图标显示 `显示面板` / `退出`。
+- App 启动后生命周期行为符合标准 macOS App 预期：
+  - `Cmd+Q` 可退出。
+  - 菜单栏右键 `退出` 可退出。
+  - 退出会停止全部托管模型并停止 API Server。
+- 明确 Gatekeeper / quarantine 处理方式。若使用 ad-hoc 签名或本地开发包，文档需记录是否需要 `xattr -cr`。
+- 提供构建和启动脚本，类似 TranslateBar 的 `scripts/build_and_run.sh` 体验。
+- 阶段 6 完成证据需记录实际启动命令、验证环境和验收截图/日志（如适用）。
+
+### 非范围
+
+- 不做 App Store 发布。
+- 不做 Apple Developer ID 公证，除非后续单独进入计划。
+- 不做自动更新。
+- 不做安装器 `.pkg` 或 `.dmg`，除非阶段 6 验收后单独提出。
+
+### Step 0 证据
+
+- 当前 ModelPad 可通过 Swift Package executable target 构建运行。
+- 阶段 5 已完成菜单栏退出和空闲功耗优化。
+- TranslateBar 已存在可参考的 `.app` 使用方式和开发脚本说明。
+- 用户明确提出希望在 app 列表中有启动入口。
+
+### 验证方式
+
+阶段 6 完成时至少验证：
+
+- `ModelPad.app` 可被 Finder 双击启动。
+- `open path/to/ModelPad.app` 可启动。
+- App 出现在系统应用入口或用户指定的 App 列表位置。
+- 从 `.app` 启动时菜单栏图标出现。
+- 从 `.app` 启动时 `Cmd+Q` 可退出。
+- 从 `.app` 启动时菜单栏右键 `退出` 可退出。
+- 退出后托管模型进程和 API Server 无残留。
+- 如果需要移除 quarantine，文档记录 `xattr -cr` 使用条件。
+
+### 完成条件
+
+- 阶段 6 范围全部实现。
+- 构建、测试和 `.app` 启动验收通过。
+- 用户可以不依赖终端命令启动 ModelPad。
+- 完成证据写入本文档。
+- `docs/PLAN_MAP.md` 状态和证据同步。
 
 ## 阶段 4 实施记录
 
