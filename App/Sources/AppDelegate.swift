@@ -88,24 +88,15 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObjec
 
     public func showMainWindow() {
         viewModel.isWindowVisible = true
-        if let window = mainWindow {
-            window.makeKeyAndOrderFront(nil)
-        } else {
-            let window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 900, height: 560),
-                styleMask: [.titled, .closable, .miniaturizable, .resizable],
-                backing: .buffered,
-                defer: false
-            )
-            window.title = "ModelPad"
-            window.center()
-            window.contentView = NSHostingView(
-                rootView: MainWindow().environmentObject(viewModel)
-            )
-            window.isReleasedWhenClosed = false
-            window.delegate = self
-            mainWindow = window
+
+        // WindowGroup 创建的窗口，首次显示时绑定 delegate 实现关闭隐藏
+        if mainWindow == nil, let swiftUIWindow = NSApp.windows.first {
+            swiftUIWindow.delegate = self
+            swiftUIWindow.isReleasedWhenClosed = false
+            mainWindow = swiftUIWindow
         }
+
+        mainWindow?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
 }
