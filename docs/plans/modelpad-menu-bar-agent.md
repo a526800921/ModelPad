@@ -48,7 +48,7 @@
 
 ## 当前阶段
 
-当前阶段：阶段 3 待实施（增加 MLX 引擎选项）。
+当前阶段：阶段 3 待实施（MLX 引擎选项和 API 启停后的 UI 状态同步）。
 
 ## 阶段路线图
 
@@ -56,7 +56,7 @@
 |---|---|---|---|---|
 | 阶段 1 | 菜单栏交互调整和隐藏程序坞 | `modelpad-v1` 阶段 6 完成 | `.app` 启动后 Dock 不出现 ModelPad；菜单栏左键显示 `显示面板` / `退出` 下拉菜单；无右键事件依赖 | 已完成 |
 | 阶段 2 | 配置编辑弹窗和 Python 脚本启动配置 | 阶段 1 完成 | 右侧详情只保留操作和日志；右上角设置按钮打开配置弹窗；模型配置可保存 py 脚本路径、参数、工作目录和环境变量，并通过托管进程启动 | 已完成 |
-| 阶段 3 | 增加 MLX 引擎选项 | 阶段 2 完成 | 设置弹窗引擎列表包含 MLX；模型列表正确展示 MLX；配置 JSON 可编解码 `engine: "mlx"`；旧配置兼容 | 待实施 |
+| 阶段 3 | MLX 引擎选项和 API 启停后的 UI 状态同步 | 阶段 2 完成 | 设置弹窗引擎列表包含 MLX；模型列表正确展示 MLX；配置 JSON 可编解码 `engine: "mlx"`；外部 API 启停模型后主面板状态能及时更新 | 待实施 |
 
 ## 阶段 1 候选：菜单栏交互调整和隐藏程序坞
 
@@ -250,15 +250,15 @@ struct PythonScriptConfig: Codable, Equatable, Sendable {
 | `.app` 打包通过 | ✅ | `build_app.sh` 成功 |
 
 **手动验收清单：**
-- [ ] `open dist/ModelPad.app` 启动后，右侧详情只显示模型名称、齿轮按钮、操作区和日志
-- [ ] 点击齿轮按钮打开配置弹窗，可编辑所有字段
-- [ ] 启动方式切换为 Python 脚本后显示脚本配置字段
-- [ ] 保存配置后可正常启动/停止模型
-- [ ] 取消配置弹窗后模型配置不变
-- [ ] 点击左下角 `添加` 按钮后自动弹出配置弹窗
-- [ ] 退出后模型进程和 API Server 无残留
+- [x] `open dist/ModelPad.app` 启动后，右侧详情只显示模型名称、齿轮按钮、操作区和日志
+- [x] 点击齿轮按钮打开配置弹窗，可编辑所有字段
+- [x] 启动方式切换为 Python 脚本后显示脚本配置字段
+- [x] 保存配置后可正常启动/停止模型
+- [x] 取消配置弹窗后模型配置不变
+- [x] 点击左下角 `添加` 按钮后自动弹出配置弹窗
+- [x] 退出后模型进程和 API Server 无残留
 
-## 阶段 3 候选：增加 MLX 引擎选项
+## 阶段 3 候选：MLX 引擎选项和 API 启停后的 UI 状态同步
 
 ### Step 0 证据
 
@@ -270,6 +270,10 @@ struct PythonScriptConfig: Codable, Equatable, Sendable {
 - 当前配置弹窗和模型列表都通过 `Engine.allCases` 展示引擎，因此 `Engine` 枚举缺少 `mlx` 会导致 UI 中没有 MLX 选项。
 - `docs/plans/modelpad-workflow-compat.md` 已记录 `fanyi` 模型命令内联启动 `mlx_lm.server`，说明项目已有 MLX 使用场景。
 - `Engine` 的既有定义只用于分类、图标、筛选和启动命令模板，不决定启动逻辑。
+- 当前主面板状态来自 `AppViewModel.statusMessages` / `pids`。
+- App 内点击启停按钮会在后台操作完成后调用 `refreshStatus()`。
+- 外部调用本地 HTTP API 的 `/api/models/:id/start`、`/stop`、`/restart` 时，`APIServer` 直接操作 `ModelProcessManager`，不会通知 `AppViewModel` 立即刷新，因此界面可能要等下一次轮询，或在窗口隐藏/轮询暂停时长期不变。
+- 用户新增缺陷反馈：接口对模型进行启停时，界面无实时变化；修复放到下个阶段。
 
 ### 范围
 
@@ -278,6 +282,8 @@ struct PythonScriptConfig: Codable, Equatable, Sendable {
 - 模型列表中的引擎标签展示 `MLX`。
 - 补充编解码测试，覆盖 `engine: "mlx"`。
 - 如存在启动命令模板，新增 MLX 模板示例；没有模板系统则不强行新增。
+- API 启停模型后，主面板应及时反映状态和 PID 变化。
+- 刷新机制应避免恢复高频空闲轮询；窗口隐藏时可以选择记录脏状态，待面板显示时刷新。
 
 ### 非范围
 
@@ -285,14 +291,21 @@ struct PythonScriptConfig: Codable, Equatable, Sendable {
 - 不新增 MLX 专用健康检查。
 - 不改变 Python 脚本配置、`command` 配置或进程托管逻辑。
 - 不自动迁移现有 `custom` 模型到 `mlx`；用户可手动修改分类。
+- 不新增外部 API 的配置写入能力。
+- 不引入远程推送或 WebSocket；本阶段只解决本机 App 进程内 API 操作后的 UI 状态同步。
 
 ### 实施步骤
 
 1. 更新 `Engine` 枚举，增加 `case mlx`。
 2. 更新设置弹窗和模型列表的引擎显示名映射，`mlx` 显示为 `MLX`。
 3. 更新测试，覆盖 `Engine.allCases` 往返和 `engine: "mlx"` 解码。
-4. 如相关文档或示例列出引擎清单，同步加入 MLX。
-5. 运行 `swift test`。
+4. 为 API 启停路径增加 App 内状态刷新通知机制，候选方式：
+   - `APIServer` 在 start/stop/restart 成功后调用一个可选回调，由 App 层绑定到 `AppViewModel.refreshStatus()`。
+   - 或由 `ModelProcessManager` 发布轻量状态变更事件，App 层订阅后刷新。
+5. 确保回调切回主线程更新 `@Published` 状态。
+6. 如相关文档或示例列出引擎清单，同步加入 MLX。
+7. 运行 `swift test`。
+8. 手动或脚本验证 API 启停后 UI 状态及时更新。
 
 ### 验证方式
 
@@ -303,7 +316,30 @@ struct PythonScriptConfig: Codable, Equatable, Sendable {
 - 重新启动 App 或重新加载配置后，MLX 分类保持不丢失。
 - 模型列表展示 `MLX`。
 - 旧配置中的 `ollama`、`llamacpp`、`vllm`、`custom` 仍可正常读取。
+- 通过 `POST /api/models/:id/start` 启动模型后，主面板状态从停止更新为启动中或运行中，不需要用户手动点击刷新或重新选择模型。
+- 通过 `POST /api/models/:id/stop` 停止模型后，主面板状态和 PID 及时更新。
+- 通过 `POST /api/models/:id/restart` 重启模型后，主面板状态和 PID 及时更新。
+- 窗口隐藏期间外部 API 启停模型后，再打开面板时状态是最新的。
 - `swift test` 通过。
+
+真实运行验收放在阶段 3 末尾执行：
+
+- 构建或启动真实 `dist/ModelPad.app`，确认默认 `9786` 端口监听。
+- 使用 `curl http://127.0.0.1:9786/api/health` 验证真实 App 实例返回成功。
+- 使用 `curl http://127.0.0.1:9786/api/models` 验证真实 App 实例可读取当前配置模型列表。
+- 对一个可安全启停的测试模型执行真实 API：
+  - `POST /api/models/:id/start`
+  - `POST /api/models/:id/stop`
+  - `POST /api/models/:id/restart`
+  - `GET /api/models/:id/logs`
+  - `POST /api/models/:id/logs/clear`
+- 真实 API 启停后，观察主面板状态和 PID 是否及时变化。
+- 验证禁止接口在真实 App 实例中仍不开放：
+  - `POST /api/models`
+  - `PUT /api/models/:id`
+  - `DELETE /api/models/:id`
+- 验证模型摘要仍不泄露 `command`、`workDir`、`env`。
+- 验收结束后退出 App，确认 API 端口释放，托管模型进程无残留。
 
 ### 完成条件
 
@@ -311,6 +347,9 @@ struct PythonScriptConfig: Codable, Equatable, Sendable {
 - UI 可选择和展示 MLX。
 - 编解码测试覆盖 MLX。
 - 不引入 MLX 专用启动或健康检查行为。
+- API 启停、重启模型后，主面板状态同步通过测试或手动验收。
+- 真实运行 App 实例的 HTTP API 验收完成，测试契约和真实端口行为一致。
+- 不回退阶段 5 的空闲功耗优化。
 - 完成证据写入本文档，并同步 `docs/PLAN_MAP.md`。
 
 ## 风险和回滚
