@@ -41,13 +41,34 @@
 
 ## 当前阶段
 
-当前阶段：阶段 1 待实施（环形缓冲替换）。
+当前阶段：阶段 1 已完成。
 
 ## 阶段路线图
 
 | 阶段 | 目标 | 进入条件 | 验证方向 | 状态 |
 |---|---|---|---|---|
-| 阶段 1 | 环形缓冲替换 | `modelpad-v1` 阶段 2 已完成；现有 LogBuffer 测试存在 | LogBuffer 现有测试通过，新增边界测试通过，全量测试通过 | 待实施 |
+| 阶段 1 | 环形缓冲替换 | `modelpad-v1` 阶段 2 已完成；现有 LogBuffer 测试存在 | LogBuffer 现有测试通过，新增边界测试通过，全量测试通过 | 已完成 |
+
+### 阶段 1 完成证据
+
+阶段 1 已于 2026-07-03 完成。
+
+**修改文件：**
+| 文件 | 变更 |
+|---|---|
+| `Sources/ModelPadCore/Logging/LogBuffer.swift` | `Array.removeFirst` O(n) 替换为预分配定长数组环形缓冲 O(1)，`append` 满时直接覆写 `writeIndex` |
+| `Tests/ModelPadCoreTests/LoggingTests/LogBufferTests.swift` | 新增 3 个边界测试：`maxLines=1` 单槽、满覆写顺序、`clear` 后重置 |
+
+**验证结果：**
+| 验收项 | 状态 | 证据 |
+|---|---|---|
+| LogBuffer 专项测试 | ✅ | 17 tests, 0 failures |
+| 全量 swift test | ✅ | 110 tests, 0 failures |
+| append O(1) 满时无 removeFirst | ✅ | 预分配数组 + writeIndex 覆写 |
+| maxLines=1 单槽只保留最后一条 | ✅ | `singleSlotRingBuffer` |
+| 满覆写保持时间顺序 | ✅ | `ringBufferOverwriteOrder` |
+| clear 后正常追加 | ✅ | `clearResetsRingBuffer` |
+| 现有测试不退化 | ✅ | 14 原有测试 + 3 新增全通过 |
 
 ## 阶段 1：环形缓冲替换
 

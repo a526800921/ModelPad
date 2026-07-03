@@ -134,6 +134,74 @@ func defaultParameters() {
     #expect(buffer.maxLineLength == 8000)
 }
 
+// MARK: - 环形缓冲边界
+
+@Test("maxLines=1 单槽环形缓冲只保留最后一条")
+func singleSlotRingBuffer() {
+    let buffer = LogBuffer(maxLines: 1, maxLineLength: 8000)
+    buffer.append(stream: .stdout, message: "first")
+    #expect(buffer.count == 1)
+    #expect(buffer.all()[0].message == "first")
+
+    buffer.append(stream: .stdout, message: "second")
+    #expect(buffer.count == 1)
+    #expect(buffer.all()[0].message == "second")
+
+    buffer.append(stream: .stderr, message: "third")
+    #expect(buffer.count == 1)
+    #expect(buffer.all()[0].message == "third")
+}
+
+@Test("缓冲区满后覆写保持时间顺序")
+func ringBufferOverwriteOrder() {
+    let buffer = LogBuffer(maxLines: 4, maxLineLength: 8000)
+
+    // 填满
+    for i in 0..<4 {
+        buffer.append(stream: .stdout, message: "msg-\(i)")
+    }
+    var entries = buffer.all()
+    #expect(entries.count == 4)
+    #expect(entries.first?.message == "msg-0")
+    #expect(entries.last?.message == "msg-3")
+
+    // 覆写 2 条
+    buffer.append(stream: .stdout, message: "msg-4")
+    buffer.append(stream: .stdout, message: "msg-5")
+
+    entries = buffer.all()
+    #expect(entries.count == 4)
+    // 最旧两条被覆盖：msg-0、msg-1 被淘汰
+    #expect(entries.first?.message == "msg-2")
+    #expect(entries[1].message == "msg-3")
+    #expect(entries[2].message == "msg-4")
+    #expect(entries[3].message == "msg-5")
+}
+
+@Test("clear 后环形缓冲重置可正常追加")
+func clearResetsRingBuffer() {
+    let buffer = LogBuffer(maxLines: 3, maxLineLength: 8000)
+
+    // 填满并覆写
+    for i in 0..<5 {
+        buffer.append(stream: .stdout, message: "old-\(i)")
+    }
+    #expect(buffer.count == 3)
+
+    // 清空
+    buffer.clear()
+    #expect(buffer.count == 0)
+    #expect(buffer.all().isEmpty)
+
+    // 重新追加
+    buffer.append(stream: .stdout, message: "new-a")
+    buffer.append(stream: .stderr, message: "new-b")
+    #expect(buffer.count == 2)
+    let entries = buffer.all()
+    #expect(entries[0].message == "new-a")
+    #expect(entries[1].message == "new-b")
+}
+
 // MARK: - 时间戳
 
 @Test("每条日志都有时间戳")

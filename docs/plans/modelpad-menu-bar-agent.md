@@ -328,6 +328,7 @@ struct PythonScriptConfig: Codable, Equatable, Sendable {
 | 旧配置 ollama/llamacpp/vllm/custom 正常 | ✅ 107 tests |
 | API 启停后 UI 状态即时刷新 | ✅ 回调 → refreshStatus |
 | swift test 通过 | ✅ 107 tests |
+| 真实运行验收 | ✅ 用户确认已闭环 |
 
 ### 验证方式
 
@@ -382,6 +383,12 @@ struct PythonScriptConfig: Codable, Equatable, Sendable {
 | `Cmd+Q` 行为与无 Dock App 的激活状态相关 | 快捷键可能依赖窗口是否激活 | 以菜单栏左键下拉菜单 `退出` 作为可靠退出入口，`Cmd+Q` 作为补充验收 | 移除 `LSUIElement` 或调整激活策略 |
 | Python 脚本配置与 `command` 双事实源冲突 | 启动行为难以预测 | 保持 `command` 兼容，脚本模式生成命令前需明确优先级 | 回退到只使用 `command` |
 | 配置编辑移入弹窗后保存路径遗漏 | 用户编辑后未保存或启动前未自动保存 | 保留保存/取消语义，并复验启动前自动保存、删除运行中模型等既有流程 | 回退到主区域配置编辑 |
+
+## 测试覆盖率
+
+- 阶段 3 验收运行 `swift test`，结果为 107 tests passed，0 failures。
+- 覆盖重点包括 `Engine.mlx` JSON 编解码、旧引擎配置兼容、API 契约、模型启停、日志、配置持久化和 App ViewModel 行为。
+- 真实运行验收已由用户确认闭环：真实 App 默认 `9786` 端口、允许接口、禁止配置写入接口、敏感字段不泄露、API 启停后的 UI 状态同步和退出清理均已完成验收。
 
 ## 阶段 2 实施前确认项
 
