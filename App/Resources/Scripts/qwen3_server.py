@@ -282,7 +282,7 @@ def main():
         ),
     )
     parser.add_argument("--host", default="127.0.0.1")
-    parser.add_argument("--port", type=int, default=8790)
+    parser.add_argument("--port", type=int, default=9004)
 
     # KV cache 量化
     parser.add_argument("--kv-bits", type=int, default=None,
