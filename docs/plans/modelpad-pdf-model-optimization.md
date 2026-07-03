@@ -106,8 +106,12 @@
 | 阶段 | 目标 | 变更 | 验证方向 | 状态 |
 |---|---|---|---|---|
 | 阶段 1 | 配置层稳定性优化 | 更新 `pdf.env`，固定设备、线程、窗口、输出目录、日志和任务保留时间；VLM 兼容性修复（独立 venv） | 启动服务、健康检查、跑最小 PDF workflow、确认端口不被误杀 | 已完成 |
-| 阶段 2 | 冷启动优化评估 | 评估 `--enable-vlm-preload True` | 对比启动时间、首次解析时间、空闲内存 | 候选 |
-| 阶段 3 | workflow 契约收敛 | 确认外部 workflow 不再依赖启动后 env 注入服务端 | 跑 `pdf-seg` / `pdf-auto`，确认服务端配置生效且不会被误杀 | 候选 |
+| 阶段 2 | 冷启动优化评估 | 评估 `--enable-vlm-preload True` | 对比启动时间、首次解析时间、空闲内存 | 已废弃 |
+| 阶段 3 | workflow 契约收敛 | 确认外部 workflow 不再依赖启动后 env 注入服务端 | 跑 `pdf-seg` / `pdf-auto`，确认服务端配置生效且不会被误杀 | 已合并 |
+
+阶段 2 废弃原因：用户已于 2026-07-04 确认不再优化 `--enable-vlm-preload True`。当前继续保持 `--enable-vlm-preload False`，优先保留较低空闲内存和已验收的稳定配置。
+
+阶段 3 合并说明：workflow 契约收敛已由 [ModelPad 外部工作流兼容](modelpad-workflow-compat.md) 和 `/Users/jafish/Documents/work/mineru-pdf-workflow` 的 `modelpad-pdf-service-lifecycle` 计划闭环；不在本计划继续单独推进。
 
 ## 阶段 1 实施进展
 
@@ -236,7 +240,7 @@ VLM 兼容性修复引入了额外变更：
 6. 解析完成后 `9000` 端口仍保持监听，避免回归到外部 workflow 误杀常驻服务。
 7. ModelPad 停止 `pdf` 模型后，`9000` 端口释放。
 
-阶段 2 评估 `--enable-vlm-preload True` 时至少记录：
+阶段 2 已废弃。若后续重新评估 `--enable-vlm-preload True`，至少记录：
 
 - 服务启动耗时。
 - 首次解析耗时。
@@ -251,7 +255,7 @@ VLM 兼容性修复引入了额外变更：
 | 任务保留时间从 24 小时降为 6 小时 | 过期后无法通过 API 回查旧任务结果 | workflow 应保存最终输出包；需要回查时调大保留时间 | 恢复默认 `86400` 或删除该 env |
 | 关闭 FastAPI docs | 本地调试 `/docs` 不可用 | 调试时临时设回 `1` | 删除 `MINERU_API_ENABLE_FASTAPI_DOCS` |
 | 关闭 access log 影响排查请求 | 少了逐请求访问记录 | 出问题时临时开启 | 删除 `MINERU_API_DISABLE_ACCESS_LOG` |
-| 开启 VLM 预加载后空闲内存升高 | 常驻服务占用更多内存 | 阶段 2 单独评估，不并入阶段 1 | 改回 `--enable-vlm-preload False` |
+| 开启 VLM 预加载后空闲内存升高 | 常驻服务占用更多内存 | 当前不推进 VLM 预加载优化 | 保持 `--enable-vlm-preload False` |
 
 ## 完成条件
 
@@ -267,7 +271,7 @@ VLM 兼容性修复引入了额外变更：
 
 | 问题 | 推荐方案 | 是否阻塞阶段 1 | 状态 |
 |---|---|---|---|
-| 是否开启 `--enable-vlm-preload True` | 不纳入阶段 1；阶段 2 用真实样本对比冷启动和内存 | 否 | 待评估 |
+| 是否开启 `--enable-vlm-preload True` | 不推进；保持 `--enable-vlm-preload False` | 否 | 已决 |
 | `MINERU_PROCESSING_WINDOW_SIZE=8` 是否适合所有 PDF | 阶段 1 保持与 workflow 当前默认一致；后续按样本调优 | 否 | 待观察 |
 | `MINERU_API_OUTPUT_ROOT` 是否需要进入项目输出包目录 | 不建议；API 临时任务输出与 workflow 最终输出包分离 | 否 | 已建议 |
 
