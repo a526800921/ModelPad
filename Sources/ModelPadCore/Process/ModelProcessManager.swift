@@ -289,16 +289,16 @@ public final class ModelProcessManager: @unchecked Sendable {
 
     /// 异步捕获管道输出。EOF 时自动清理 readabilityHandler 防止死循环。
     ///
-    /// tqdm 在 pipe 模式下每次刷新独立 write，产生多个 chunk，每个 chunk 以 `\r` 分隔
-    /// 进度更新、以 `\n` 结束一行。这里积累到 `\n` 再处理，整行按 `\r` 分割后只保留
-    /// 最后一段（最终进度状态），避免进度条在日志中产生大量换行。
+    /// tqdm 在 pipe 模式下每行以 `\n` 收尾时，中间进度更新用 `\r` 覆盖刷新。
+    /// 此处积累到 `\n` 再输出整行，但如果超过 4KB 还没见到 `\n`（纯 `\r` 进度条），
+    /// 也立即输出避免长时间无反馈。
     private func captureOutput(pipe: Pipe, stream: LogStream, buffer: LogBuffer) {
         let partial = PartialData()
 
         pipe.fileHandleForReading.readabilityHandler = { handle in
             let data = handle.availableData
             guard !data.isEmpty else {
-                // EOF：输出残留行并停止监听
+                // EOF：输出残留
                 if !partial.data.isEmpty, let text = String(data: partial.data, encoding: .utf8) {
                     let final = text.split(separator: "\r", omittingEmptySubsequences: true).last
                     if let msg = final, !msg.isEmpty {
@@ -311,25 +311,37 @@ public final class ModelProcessManager: @unchecked Sendable {
 
             partial.data.append(data)
 
-            // 防止无换行长数据撑爆内存
-            if partial.data.count > 256_000 {
-                if let text = String(data: partial.data, encoding: .utf8) {
-                    buffer.append(stream: stream, message: text)
-                }
-                partial.data.removeAll()
-                return
-            }
-
             // 提取所有完整行（以 \n 结尾）
             while let nlIndex = partial.data.firstIndex(of: 0x0A) {
                 let lineData = partial.data[..<nlIndex]
                 partial.data.removeSubrange(...nlIndex)
 
                 guard let text = String(data: lineData, encoding: .utf8) else { continue }
-                let final = text.split(separator: "\r", omittingEmptySubsequences: true).last
-                if let msg = final, !msg.isEmpty {
-                    buffer.append(stream: stream, message: String(msg))
+                let segments = text.split(separator: "\r", omittingEmptySubsequences: true)
+                let meaningful = segments.filter { !$0.allSatisfy({ $0.isWhitespace }) }
+                if let first = meaningful.first {
+                    buffer.append(stream: stream, message: String(first))
                 }
+                if meaningful.count > 1, let last = meaningful.last, last != meaningful.first {
+                    buffer.append(stream: stream, message: String(last))
+                }
+            }
+
+            // 超过 4KB 还没 \n：纯 \r 进度条，输出当前状态
+            if partial.data.count > 4096 {
+                if let text = String(data: partial.data, encoding: .utf8) {
+                    let final = text.split(separator: "\r", omittingEmptySubsequences: true).last
+                    if let msg = final, !msg.isEmpty,
+                       !msg.allSatisfy({ $0.isWhitespace }) {
+                        buffer.append(stream: stream, message: String(msg))
+                    }
+                }
+                partial.data.removeAll()
+            }
+
+            // 硬上限防内存撑爆
+            if partial.data.count > 256_000 {
+                partial.data.removeAll()
             }
         }
     }
