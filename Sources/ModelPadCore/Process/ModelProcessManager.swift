@@ -288,23 +288,48 @@ public final class ModelProcessManager: @unchecked Sendable {
     // MARK: - 内部
 
     /// 异步捕获管道输出。EOF 时自动清理 readabilityHandler 防止死循环。
+    ///
+    /// tqdm 在 pipe 模式下每次刷新独立 write，产生多个 chunk，每个 chunk 以 `\r` 分隔
+    /// 进度更新、以 `\n` 结束一行。这里积累到 `\n` 再处理，整行按 `\r` 分割后只保留
+    /// 最后一段（最终进度状态），避免进度条在日志中产生大量换行。
     private func captureOutput(pipe: Pipe, stream: LogStream, buffer: LogBuffer) {
+        var partial = Data()
+
         pipe.fileHandleForReading.readabilityHandler = { handle in
             let data = handle.availableData
             guard !data.isEmpty else {
-                // EOF：写端已关闭，停止监听防止死循环
+                // EOF：输出残留行并停止监听
+                if !partial.isEmpty, let text = String(data: partial, encoding: .utf8) {
+                    let final = text.split(separator: "\r", omittingEmptySubsequences: true).last
+                    if let msg = final, !msg.isEmpty {
+                        buffer.append(stream: stream, message: String(msg))
+                    }
+                }
                 handle.readabilityHandler = nil
                 return
             }
-            guard let text = String(data: data, encoding: .utf8) else { return }
 
-            // 按行分割，处理 tqdm 进度条的 \r 覆盖刷新
-            let rawLines = text.split(separator: "\n", omittingEmptySubsequences: false)
-            for rawLine in rawLines where !rawLine.isEmpty {
-                // \r 分隔的多个覆盖段，只保留最后一段（最终状态）
-                let segments = rawLine.split(separator: "\r", omittingEmptySubsequences: true)
-                if let final = segments.last, !final.isEmpty {
-                    buffer.append(stream: stream, message: String(final))
+            partial.append(data)
+
+            // 防止无换行长数据撑爆内存
+            if partial.count > 256_000 {
+                if let text = String(data: partial, encoding: .utf8) {
+                    buffer.append(stream: stream, message: text)
+                }
+                partial.removeAll()
+                return
+            }
+
+            // 提取所有完整行（以 \n 结尾）
+            while let nlIndex = partial.firstIndex(of: 0x0A) {
+                let lineData = partial[..<nlIndex]
+                partial.removeSubrange(...nlIndex)  // 包含 \n
+
+                guard let text = String(data: lineData, encoding: .utf8) else { continue }
+                // \r 分隔的多段覆盖，只保留最后一段
+                let final = text.split(separator: "\r", omittingEmptySubsequences: true).last
+                if let msg = final, !msg.isEmpty {
+                    buffer.append(stream: stream, message: String(msg))
                 }
             }
         }
