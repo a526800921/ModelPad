@@ -21,7 +21,7 @@
 | [ModelPad LogBuffer 性能优化](plans/modelpad-logbuffer-performance.md) | 待实施 | 阶段 1：环形缓冲替换 | modelpad-v1 | [Step 0 证据](plans/modelpad-logbuffer-performance.md#step-0-证据) |
 | [ModelPad 外部工作流兼容](plans/modelpad-workflow-compat.md) | 候选 | 阶段 1：`pdf` 模型与 `mineru-pdf-workflow` 生命周期兼容（待外部项目处理） | modelpad-v1 | [Step 0 证据](plans/modelpad-workflow-compat.md#step-0-证据) |
 | [ModelPad PDF 模型优化方案](plans/modelpad-pdf-model-optimization.md) | 候选 | 阶段 1：配置层稳定性优化 | modelpad-v1, modelpad-workflow-compat | [Step 0 证据](plans/modelpad-pdf-model-optimization.md#step-0-证据) |
-| [ModelPad 菜单栏常驻和启动配置增强](plans/modelpad-menu-bar-agent.md) | 待实施 | 阶段 3：增加 MLX 引擎选项 | modelpad-v1 | [阶段 2 完成证据](plans/modelpad-menu-bar-agent.md#阶段-2-完成证据) |
+| [ModelPad 菜单栏常驻和启动配置增强](plans/modelpad-menu-bar-agent.md) | 待实施 | 阶段 3：MLX 引擎选项和 API 启停后的 UI 状态同步 | modelpad-v1 | [阶段 2 完成证据](plans/modelpad-menu-bar-agent.md#阶段-2-完成证据) |
 
 允许状态：`候选`、`设计中`、`待实施`、`实施中`、`已完成`、`已替代`、`已合并`、`已废弃`。
 
@@ -31,7 +31,7 @@
 2. `modelpad-logbuffer-performance` 阶段 1 待实施：优先修复日志热路径 `LogBuffer.append` 的锁内数组移位问题，将日志缓冲改为环形缓冲。
 3. `modelpad-workflow-compat` 阶段 1：等待用户在 `mineru-pdf-workflow` 项目处理，使其完全依赖 ModelPad 托管服务。
 4. `modelpad-pdf-model-optimization` 阶段 1 候选：在不改代码的前提下收敛 `pdf` 模型服务端环境变量、输出目录、日志和任务保留策略。
-5. `modelpad-menu-bar-agent` 阶段 3 待实施：增加 MLX 引擎选项，用于配置分类、列表展示和 JSON 编解码。
+5. `modelpad-menu-bar-agent` 阶段 3 待实施：增加 MLX 引擎选项，并修复外部 API 启停模型后主面板状态不实时更新的问题。
 
 ## 依赖关系
 
@@ -89,5 +89,7 @@
 | 2026-07-03 | 后续阶段 | 交互变更 | 菜单栏 icon 左键点击出现下拉菜单，把原右键 `显示面板` / `退出` 功能放到左键，移除右键事件。 | [菜单栏交互调整和隐藏程序坞](plans/modelpad-menu-bar-agent.md#阶段-1-候选菜单栏交互调整和隐藏程序坞) |
 | 2026-07-03 | 后续阶段 | UI 调整 | 模型右侧详情界面只保留操作和日志；右上角悬浮设置按钮打开弹窗，在弹窗内编辑模型配置。 | [配置编辑弹窗和 Python 脚本启动配置](plans/modelpad-menu-bar-agent.md#阶段-2-候选配置编辑弹窗和-python-脚本启动配置) |
 | 2026-07-03 | 后续阶段 | UI 调整 | 移除面板顶部右上角的启动和停止入口，避免和模型详情内操作重复。 | [配置编辑弹窗和 Python 脚本启动配置](plans/modelpad-menu-bar-agent.md#阶段-2-候选配置编辑弹窗和-python-脚本启动配置) |
-| 2026-07-03 | 阶段 3 | 新需求 | 模型设置的引擎选项中增加 `MLX`，因为现有 `Engine` 只有 `ollama`、`llamacpp`、`vllm`、`custom`，但已有模型使用 `mlx_lm.server`。 | [增加 MLX 引擎选项](plans/modelpad-menu-bar-agent.md#阶段-3-候选增加-mlx-引擎选项) |
+| 2026-07-03 | 阶段 3 | 新需求 | 模型设置的引擎选项中增加 `MLX`，因为现有 `Engine` 只有 `ollama`、`llamacpp`、`vllm`、`custom`，但已有模型使用 `mlx_lm.server`。 | [MLX 引擎选项和 API 启停后的 UI 状态同步](plans/modelpad-menu-bar-agent.md#阶段-3-候选mlx-引擎选项和-api-启停后的-ui-状态同步) |
+| 2026-07-03 | 阶段 3 | 缺陷修复 | 通过本地 HTTP API 对模型进行启动、停止或重启后，主面板状态不会实时变化；阶段 3 需要在 API 启停路径和 `AppViewModel.refreshStatus()` 之间建立同步机制，同时不回退空闲功耗优化。 | [MLX 引擎选项和 API 启停后的 UI 状态同步](plans/modelpad-menu-bar-agent.md#阶段-3-候选mlx-引擎选项和-api-启停后的-ui-状态同步) |
+| 2026-07-03 | 阶段 3 | 真实验收 | 阶段 3 末尾需要启动真实 `dist/ModelPad.app`，用默认 `9786` 端口 curl 验证允许接口、禁止配置写入接口、敏感字段不泄露、API 启停后的 UI 状态同步，以及退出后端口和模型进程无残留。 | [真实运行验收](plans/modelpad-menu-bar-agent.md#验证方式) |
 | 2026-07-03 | 新计划 | 性能优化 | `pdf` 模型当前只配置 `PYENV_ROOT` 和基础启动参数；服务端相关 MinerU 环境变量仍主要出现在外部 workflow 中，常驻服务启动后不会受后续 workflow env 影响。 | [ModelPad PDF 模型优化方案](plans/modelpad-pdf-model-optimization.md) |

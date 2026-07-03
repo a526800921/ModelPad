@@ -14,6 +14,9 @@ public final class APIServer: @unchecked Sendable {
     private let processManager: ModelProcessManager
     private let configStore: ConfigStore
 
+    /// API 启停操作后回调，用于通知 UI 刷新状态。
+    public var onModelStateChanged: (@Sendable () -> Void)?
+
     private var channel: Channel?
     private var group: MultiThreadedEventLoopGroup?
 
@@ -37,10 +40,12 @@ public final class APIServer: @unchecked Sendable {
 
         let store: ConfigStore = configStore
         let pm: ModelProcessManager = processManager
+        let stateChanged = self.onModelStateChanged
 
         let bootstrap = ServerBootstrap(group: group)
             .childChannelInitializer { channel in
                 let handler = APIHandler(processManager: pm, configStore: store)
+                handler.onModelStateChanged = stateChanged
                 return channel.pipeline.configureHTTPServerPipeline().flatMap {
                     channel.pipeline.addHandler(handler)
                 }
@@ -69,6 +74,8 @@ private final class APIHandler: ChannelInboundHandler {
 
     private let processManager: ModelProcessManager
     private let configStore: ConfigStore
+
+    var onModelStateChanged: (@Sendable () -> Void)?
 
     private var method: HTTPMethod = .GET
     private var path: String = ""
@@ -206,6 +213,7 @@ private final class APIHandler: ChannelInboundHandler {
               let config = findModel(id: uuid) else {
             return .error(ErrorResponse(code: "model_not_found", message: "Model not found"))
         }
+        defer { onModelStateChanged?() }
         do {
             let status = try processManager.start(config: config)
             let pid = processManager.pid(for: uuid)
@@ -216,6 +224,7 @@ private final class APIHandler: ChannelInboundHandler {
     }
 
     private func handleStop(id: String) -> APIResponse {
+        defer { onModelStateChanged?() }
         guard let uuid = UUID(uuidString: id),
               findModel(id: uuid) != nil else {
             return .error(ErrorResponse(code: "model_not_found", message: "Model not found"))
@@ -229,6 +238,7 @@ private final class APIHandler: ChannelInboundHandler {
               let config = findModel(id: uuid) else {
             return .error(ErrorResponse(code: "model_not_found", message: "Model not found"))
         }
+        defer { onModelStateChanged?() }
         do {
             let status = try processManager.restart(modelId: uuid, config: config)
             let pid = processManager.pid(for: uuid)

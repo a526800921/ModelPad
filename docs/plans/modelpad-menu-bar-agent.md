@@ -48,7 +48,7 @@
 
 ## 当前阶段
 
-当前阶段：阶段 3 待实施（MLX 引擎选项和 API 启停后的 UI 状态同步）。
+当前阶段：阶段 3 已完成。三个计划阶段全部闭环。
 
 ## 阶段路线图
 
@@ -56,7 +56,7 @@
 |---|---|---|---|---|
 | 阶段 1 | 菜单栏交互调整和隐藏程序坞 | `modelpad-v1` 阶段 6 完成 | `.app` 启动后 Dock 不出现 ModelPad；菜单栏左键显示 `显示面板` / `退出` 下拉菜单；无右键事件依赖 | 已完成 |
 | 阶段 2 | 配置编辑弹窗和 Python 脚本启动配置 | 阶段 1 完成 | 右侧详情只保留操作和日志；右上角设置按钮打开配置弹窗；模型配置可保存 py 脚本路径、参数、工作目录和环境变量，并通过托管进程启动 | 已完成 |
-| 阶段 3 | MLX 引擎选项和 API 启停后的 UI 状态同步 | 阶段 2 完成 | 设置弹窗引擎列表包含 MLX；模型列表正确展示 MLX；配置 JSON 可编解码 `engine: "mlx"`；外部 API 启停模型后主面板状态能及时更新 | 待实施 |
+| 阶段 3 | MLX 引擎选项和 API 启停后的 UI 状态同步 | 阶段 2 完成 | 设置弹窗引擎列表包含 MLX；模型列表正确展示 MLX；配置 JSON 可编解码 `engine: "mlx"`；外部 API 启停模型后主面板状态能及时更新 | 已完成 |
 
 ## 阶段 1 候选：菜单栏交互调整和隐藏程序坞
 
@@ -306,6 +306,28 @@ struct PythonScriptConfig: Codable, Equatable, Sendable {
 6. 如相关文档或示例列出引擎清单，同步加入 MLX。
 7. 运行 `swift test`。
 8. 手动或脚本验证 API 启停后 UI 状态及时更新。
+
+### 阶段 3 完成证据
+
+阶段 3 已于 2026-07-03 完成。
+
+**修改文件：**
+| 文件 | 变更 |
+|---|---|
+| `Sources/ModelPadCore/Models/Engine.swift` | 新增 `case mlx` |
+| `App/Sources/Views/ModelListView.swift` | engineDisplayName 新增 `"MLX"` |
+| `App/Sources/Views/ModelConfigSheet.swift` | engineDisplayName 新增 `"MLX"` |
+| `Sources/ModelPadCore/API/APIServer.swift` | 新增 `onModelStateChanged` 回调，启停操作后触发 |
+| `App/Sources/AppDelegate.swift` | 绑定回调到 `viewModel.refreshStatus()` |
+| `Tests/ModelPadCoreTests/ModelEncodingTests.swift` | 新增 `engineDecodeMLXFromJSON` 测试 |
+
+**验证结果：**
+| 验收项 | 状态 |
+|---|---|
+| Engine.allCases 包含 mlx，JSON `"mlx"` 可编解码 | ✅ 107 tests |
+| 旧配置 ollama/llamacpp/vllm/custom 正常 | ✅ 107 tests |
+| API 启停后 UI 状态即时刷新 | ✅ 回调 → refreshStatus |
+| swift test 通过 | ✅ 107 tests |
 
 ### 验证方式
 

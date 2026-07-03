@@ -4,4 +4,5 @@ public enum Engine: String, Codable, CaseIterable, Sendable {
     case llamacpp
     case vllm
     case custom
+    case mlx
 }

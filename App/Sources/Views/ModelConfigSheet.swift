@@ -242,6 +242,7 @@ struct ModelConfigSheet: View {
         case .llamacpp: return "llama.cpp"
         case .vllm: return "vLLM"
         case .custom: return "自定义"
+        case .mlx: return "MLX"
         }
     }
 

@@ -24,6 +24,14 @@ func engineDecodeFromValidJSON() throws {
     #expect(engine == .ollama)
 }
 
+@Test("Engine mlx 从 JSON 解码")
+func engineDecodeMLXFromJSON() throws {
+    let json = #""mlx""#
+    let data = json.data(using: .utf8)!
+    let engine = try JSONDecoder().decode(Engine.self, from: data)
+    #expect(engine == .mlx)
+}
+
 @Test("Engine 从非法字符串解码失败")
 func engineDecodeFromInvalidJSON() {
     let json = #""unknown_engine""#

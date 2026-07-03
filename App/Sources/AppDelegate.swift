@@ -23,6 +23,11 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObjec
 
     public func applicationDidFinishLaunching(_ notification: Notification) {
         // 启动 API Server
+        viewModel.apiServer.onModelStateChanged = { [weak viewModel] in
+            DispatchQueue.main.async {
+                viewModel?.refreshStatus()
+            }
+        }
         do {
             try viewModel.apiServer.start()
         } catch {
