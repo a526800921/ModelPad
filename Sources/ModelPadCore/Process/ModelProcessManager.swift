@@ -293,13 +293,13 @@ public final class ModelProcessManager: @unchecked Sendable {
     /// 进度更新、以 `\n` 结束一行。这里积累到 `\n` 再处理，整行按 `\r` 分割后只保留
     /// 最后一段（最终进度状态），避免进度条在日志中产生大量换行。
     private func captureOutput(pipe: Pipe, stream: LogStream, buffer: LogBuffer) {
-        var partial = Data()
+        let partial = PartialData()
 
         pipe.fileHandleForReading.readabilityHandler = { handle in
             let data = handle.availableData
             guard !data.isEmpty else {
                 // EOF：输出残留行并停止监听
-                if !partial.isEmpty, let text = String(data: partial, encoding: .utf8) {
+                if !partial.data.isEmpty, let text = String(data: partial.data, encoding: .utf8) {
                     let final = text.split(separator: "\r", omittingEmptySubsequences: true).last
                     if let msg = final, !msg.isEmpty {
                         buffer.append(stream: stream, message: String(msg))
@@ -309,24 +309,23 @@ public final class ModelProcessManager: @unchecked Sendable {
                 return
             }
 
-            partial.append(data)
+            partial.data.append(data)
 
             // 防止无换行长数据撑爆内存
-            if partial.count > 256_000 {
-                if let text = String(data: partial, encoding: .utf8) {
+            if partial.data.count > 256_000 {
+                if let text = String(data: partial.data, encoding: .utf8) {
                     buffer.append(stream: stream, message: text)
                 }
-                partial.removeAll()
+                partial.data.removeAll()
                 return
             }
 
             // 提取所有完整行（以 \n 结尾）
-            while let nlIndex = partial.firstIndex(of: 0x0A) {
-                let lineData = partial[..<nlIndex]
-                partial.removeSubrange(...nlIndex)  // 包含 \n
+            while let nlIndex = partial.data.firstIndex(of: 0x0A) {
+                let lineData = partial.data[..<nlIndex]
+                partial.data.removeSubrange(...nlIndex)
 
                 guard let text = String(data: lineData, encoding: .utf8) else { continue }
-                // \r 分隔的多段覆盖，只保留最后一段
                 let final = text.split(separator: "\r", omittingEmptySubsequences: true).last
                 if let msg = final, !msg.isEmpty {
                     buffer.append(stream: stream, message: String(msg))
@@ -334,4 +333,9 @@ public final class ModelProcessManager: @unchecked Sendable {
             }
         }
     }
+}
+
+/// 可变 Data 缓冲，用于 pipe readabilityHandler 中跨 chunk 积累行数据。
+private final class PartialData: @unchecked Sendable {
+    var data = Data()
 }
