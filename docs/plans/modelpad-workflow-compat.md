@@ -27,15 +27,34 @@
 
 ## 当前阶段
 
-当前阶段：阶段 1 候选（`pdf` 模型与 `mineru-pdf-workflow` 生命周期兼容）。
+阶段 1 已由外部项目闭环（2026-07-03）。`mineru-pdf-workflow` 已完成 `modelpad-pdf-service-lifecycle` 计划全阶段（0-3），消除了所有服务生命周期副作用。ModelPad 本仓库无需代码改动。
 
-阶段 1 修复落点已决：由用户在 `/Users/jafish/Documents/work/mineru-pdf-workflow` 项目处理，使其完全依赖 ModelPad 托管服务。ModelPad 本仓库暂不实施代码改动。
+### 外部项目闭环证据
+
+`mineru-pdf-workflow` 仓库 `docs/plans/modelpad-pdf-service-lifecycle.md` 记录以下变更（2026-07-03）：
+
+| 阶段 | 目标 | 状态 |
+|---|---|---|
+| 阶段 0 | 固化服务生命周期边界 | ✅ |
+| 阶段 1 | 移除 `pdf-seg`/`pdf-auto`/`pdf-rerun` 中的服务管理副作用 | ✅ |
+| 阶段 2 | 修复 `pdf-auto` 重跑失败 `set -e` 提前退出 | ✅ |
+| 阶段 3 | `pdf-merge` 图片同名冲突 SHA-256 检测 | ✅ |
+
+关键行为变化：
+
+- `scripts/pdf-seg`：不再 `kill` 9000 端口进程，不再清理项目 `output/`
+- `scripts/pdf-auto`：trap 不再删除项目 `output/`；重跑失败路径免疫 `set -e`
+- `scripts/pdf-rerun`：不再清理项目 `output/`
+- 三个脚本统一：无 API 服务时明确报错退出（"请先启动 ModelPad PDF 服务"），不走降级路径
+- 所有 `mineru` 调用统一使用 `--api-url`
+
+提交记录：`16ce5f9`（阶段 1）、`2786cac`（阶段 2）、`c8a31c2`（阶段 3）。
 
 ## 阶段路线图
 
 | 阶段 | 目标 | 进入条件 | 验证方向 | 状态 |
 |---|---|---|---|---|
-| 阶段 1 | `pdf` 模型与 `mineru-pdf-workflow` 生命周期兼容 | `modelpad-v1` 阶段 6 完成；`pdf` 模型已配置 | ModelPad 托管 `pdf` 后运行外部 workflow，不再导致 9000 服务被误杀 | 待外部项目处理 |
+| 阶段 1 | `pdf` 模型与 `mineru-pdf-workflow` 生命周期兼容 | `modelpad-v1` 阶段 6 完成；`pdf` 模型已配置 | ModelPad 托管 `pdf` 后运行外部 workflow，不再导致 9000 服务被误杀 | 已由外部项目闭环 |
 
 ## 阶段 1 候选：`pdf` 模型与 `mineru-pdf-workflow` 生命周期兼容
 
@@ -51,8 +70,9 @@
 - `modelpad-v1` 阶段 6 已完成，用户可以通过 `.app` 方式启动 ModelPad。
 - `pdf` 模型当前端口为 `9000`，命令内联启动 `mineru-api`。
 - `fanyi` 模型当前端口为 `8787`，命令内联启动 `mlx_lm.server`。
-- 已读到运行总结 `/Users/jafish/Documents/work/mineru-pdf-workflow/docs/run-summary-2026-07-02.md`，其中记录 `pdf-seg` 在复用 9000 端口后会结束该服务。
-- 代码排查确认 `mineru-pdf-workflow/scripts/pdf-seg` 默认 `MINERU_API_RESTART=1`，结束时按 `${MINERU_API_BASE_PORT:-9000}` 查找监听进程并 kill。
+- 历史问题（已修复）：`mineru-pdf-workflow/scripts/pdf-seg` 曾在结束时按端口查 PID 并 `kill` 9000 服务，也曾在 `MINERU_API_RESTART=1` 默认值下重启 `mineru-api`。阶段 1 已移除全部服务生命周期副作用。
+- 历史问题（已修复）：`pdf-auto` 和 `pdf-rerun` 曾清理项目根目录 `output/`，可能误删 ModelPad 共享运行产物。阶段 1 已移除。
+- 当前状态（2026-07-03）：`mineru-pdf-workflow` 三个入口脚本（`pdf-seg`/`pdf-auto`/`pdf-rerun`）均只复用服务、不管理进程、不清理共享目录，无 API 时报错退出。
 
 ### 验证方式
 
@@ -71,6 +91,23 @@
 - ModelPad 托管模型不会被已知外部 workflow 误杀。
 - `pdf` / `fanyi` 启停、健康检查和退出清理完成验收。
 - 相关证据写入本文档，并同步 `docs/PLAN_MAP.md`。
+
+### 阶段 1 完成证据
+
+阶段 1 已由外部项目于 2026-07-03 闭环，并由用户于 2026-07-04 确认完成。
+
+完成证据：
+
+- `/Users/jafish/Documents/work/mineru-pdf-workflow/docs/plans/modelpad-pdf-service-lifecycle.md` 显示阶段 0-3 已完成。
+- `scripts/pdf-seg`、`scripts/pdf-auto`、`scripts/pdf-rerun` 均只复用已存在的 ModelPad PDF 服务，不再负责启动、重启、停止服务。
+- 三个脚本无 API 服务时明确提示先启动 ModelPad PDF 服务并退出，不再走 MinerU 默认本地启动或降级路径。
+- 所有实际解析或重跑的 MinerU 调用均使用 `--api-url "$api_url"`。
+- 用户确认外部项目处理已完成；ModelPad 本仓库无需代码改动。
+
+## 测试覆盖率
+
+- 本计划在 ModelPad 仓库内没有新增代码或自动化测试。
+- 外部项目 `mineru-pdf-workflow` 已完成脚本级验证和治理检查；用户确认服务生命周期兼容手动集成测试通过。
 
 ## 风险和回滚
 
