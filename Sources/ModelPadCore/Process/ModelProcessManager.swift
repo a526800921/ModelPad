@@ -288,66 +288,19 @@ public final class ModelProcessManager: @unchecked Sendable {
     // MARK: - 内部
 
     /// 异步捕获管道输出。EOF 时自动清理 readabilityHandler 防止死循环。
-    ///
-    /// tqdm 在 pipe 模式下每行以 `\n` 收尾时，中间进度更新用 `\r` 覆盖刷新。
-    /// 此处积累到 `\n` 再输出整行，但如果超过 4KB 还没见到 `\n`（纯 `\r` 进度条），
-    /// 也立即输出避免长时间无反馈。
     private func captureOutput(pipe: Pipe, stream: LogStream, buffer: LogBuffer) {
-        let partial = PartialData()
-
         pipe.fileHandleForReading.readabilityHandler = { handle in
             let data = handle.availableData
             guard !data.isEmpty else {
-                // EOF：输出残留
-                if !partial.data.isEmpty, let text = String(data: partial.data, encoding: .utf8) {
-                    let trimmed = text.split(separator: "\r", omittingEmptySubsequences: true).last
-                        .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) } ?? ""
-                    if !trimmed.isEmpty {
-                        buffer.append(stream: stream, message: trimmed)
-                    }
-                }
                 handle.readabilityHandler = nil
                 return
             }
+            guard let text = String(data: data, encoding: .utf8) else { return }
 
-            partial.data.append(data)
-
-            // 提取所有完整行（以 \n 结尾）
-            while let nlIndex = partial.data.firstIndex(of: 0x0A) {
-                let lineData = partial.data[..<nlIndex]
-                partial.data.removeSubrange(...nlIndex)
-
-                guard let text = String(data: lineData, encoding: .utf8) else { continue }
-                let segments = text.split(separator: "\r", omittingEmptySubsequences: true)
-                for seg in segments {
-                    let trimmed = seg.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if !trimmed.isEmpty {
-                        buffer.append(stream: stream, message: trimmed)
-                    }
-                }
-            }
-
-            // 超过 4KB 还没 \n：纯 \r 进度条，输出当前状态
-            if partial.data.count > 4096 {
-                if let text = String(data: partial.data, encoding: .utf8) {
-                    let trimmed = text.split(separator: "\r", omittingEmptySubsequences: true).last
-                        .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) } ?? ""
-                    if !trimmed.isEmpty {
-                        buffer.append(stream: stream, message: trimmed)
-                    }
-                }
-                partial.data.removeAll()
-            }
-
-            // 硬上限防内存撑爆
-            if partial.data.count > 256_000 {
-                partial.data.removeAll()
+            let lines = text.split(separator: "\n", omittingEmptySubsequences: false)
+            for line in lines where !line.isEmpty {
+                buffer.append(stream: stream, message: String(line))
             }
         }
     }
-}
-
-/// 可变 Data 缓冲，用于 pipe readabilityHandler 中跨 chunk 积累行数据。
-private final class PartialData: @unchecked Sendable {
-    var data = Data()
 }
