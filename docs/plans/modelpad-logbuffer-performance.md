@@ -70,6 +70,12 @@
 | clear 后正常追加 | ✅ | `clearResetsRingBuffer` |
 | 现有测试不退化 | ✅ | 14 原有测试 + 3 新增全通过 |
 
+## 测试覆盖率
+
+- LogBuffer 专项验证运行 `swift test --filter LogBuffer`，结果为 17 tests passed，0 failures。
+- 全量验证运行 `swift test`，结果为 110 tests passed，0 failures。
+- 覆盖重点包括默认容量、追加、清空、FIFO 淘汰、单行截断、实例隔离、时间戳、`maxLines = 1` 单槽环形缓冲、满缓冲覆写顺序和 `clear()` 后重置。
+
 ## 阶段 1：环形缓冲替换
 
 ### Step 0 证据

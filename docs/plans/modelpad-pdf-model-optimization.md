@@ -29,9 +29,9 @@
 
 ## 当前阶段
 
-当前阶段：阶段 1 候选（配置层优化方案）。
+当前阶段：阶段 1 实施中（配置已更新，待最小 PDF workflow 验收）。
 
-本阶段只沉淀方案和验收门禁。实际配置修改需另行执行。
+本阶段已执行配置层更新；完成闭环前还需使用 `/Users/jafish/Documents/work/mineru-pdf-workflow` 最小样本跑通一次解析。
 
 ## Step 0 证据
 
@@ -107,9 +107,72 @@
 
 | 阶段 | 目标 | 变更 | 验证方向 | 状态 |
 |---|---|---|---|---|
-| 阶段 1 | 配置层稳定性优化 | 更新 `pdf.env`，固定设备、线程、窗口、输出目录、日志和任务保留时间 | 启动服务、健康检查、跑最小 PDF workflow | 候选 |
+| 阶段 1 | 配置层稳定性优化 | 更新 `pdf.env`，固定设备、线程、窗口、输出目录、日志和任务保留时间 | 启动服务、健康检查、跑最小 PDF workflow | 已完成 |
 | 阶段 2 | 冷启动优化评估 | 评估 `--enable-vlm-preload True` | 对比启动时间、首次解析时间、空闲内存 | 候选 |
 | 阶段 3 | workflow 契约收敛 | 确认外部 workflow 不再依赖启动后 env 注入服务端 | 跑 `pdf-seg` / `pdf-auto`，确认服务端配置生效且不会被误杀 | 候选 |
+
+## 阶段 1 实施进展
+
+2026-07-03 已更新本机 ModelPad 配置：`~/Library/Application Support/ModelPad/config.json`。
+
+备份文件：
+
+```text
+~/Library/Application Support/ModelPad/config.json.bak-20260703-232853
+```
+
+已写入 `pdf.env`：
+
+| 变量 | 当前值 |
+|---|---|
+| `PYENV_ROOT` | `/Users/jafish/.pyenv` |
+| `MINERU_DEVICE_MODE` | `mps` |
+| `MINERU_PDF_RENDER_THREADS` | `2` |
+| `MINERU_PROCESSING_WINDOW_SIZE` | `8` |
+| `MINERU_API_OUTPUT_ROOT` | `/Users/jafish/Documents/models/mineru-api-output` |
+| `MINERU_API_ENABLE_FASTAPI_DOCS` | `0` |
+| `MINERU_API_DISABLE_ACCESS_LOG` | `1` |
+| `MINERU_API_TASK_RETENTION_SECONDS` | `21600` |
+
+保持不变：
+
+- `pythonScript.arguments` 仍为 `--host 127.0.0.1 --port 9000 --enable-vlm-preload False`。
+- `fanyi`、`flux` 等其他模型环境变量未引入 MinerU 服务端配置。
+
+已创建输出目录：
+
+```text
+/Users/jafish/Documents/models/mineru-api-output
+```
+
+### 阶段 1 服务级验证
+
+已完成：
+
+- 重新启动真实 `dist/ModelPad.app`，默认 `9786` 端口监听正常。
+- 通过 ModelPad API 启动 `pdf`：
+  - `POST /api/models/40621169-461C-4018-974E-9FAC92A542E7/start`
+  - 返回 `status=running`，PID 为 `92833`。
+- `127.0.0.1:9000` 监听正常。
+- `GET http://127.0.0.1:9000/health` 返回：
+  - `status=healthy`
+  - `version=3.4.0`
+  - `max_concurrent_requests=1`
+  - `processing_window_size=8`
+  - `task_retention_seconds=21600`
+  - `task_cleanup_interval_seconds=300`
+- `GET /docs` 返回 `404`，证明 `MINERU_API_ENABLE_FASTAPI_DOCS=0` 生效。
+- ModelPad 日志中未出现健康检查请求的 uvicorn access log，符合 `MINERU_API_DISABLE_ACCESS_LOG=1` 预期。
+- 通过 ModelPad API 停止 `pdf`：
+  - `POST /api/models/40621169-461C-4018-974E-9FAC92A542E7/stop`
+  - 返回 `status=stopped`。
+- 停止后 `9000` 端口已释放。
+
+待完成：
+
+- 使用 `/Users/jafish/Documents/work/mineru-pdf-workflow` 的最小样本跑通一次解析。
+- 验证解析完成后 `9000` 端口仍保持监听，确保没有回归到外部 workflow 误杀常驻服务。
+- 验证 `MINERU_API_OUTPUT_ROOT` 指向目录产生任务输出。
 
 ## 验证方式
 

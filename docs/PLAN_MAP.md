@@ -20,7 +20,7 @@
 | [ModelPad v1 实施计划](plans/modelpad-v1.md) | 已完成 | v1 全部阶段已完成 | - | [阶段 1-6 证据](plans/modelpad-v1.md#阶段-6-完成证据) |
 | [ModelPad LogBuffer 性能优化](plans/modelpad-logbuffer-performance.md) | 已完成 | 阶段 1：环形缓冲替换 | modelpad-v1 | [阶段 1 完成证据](plans/modelpad-logbuffer-performance.md#阶段-1-完成证据) |
 | [ModelPad 外部工作流兼容](plans/modelpad-workflow-compat.md) | 候选 | 阶段 1：`pdf` 模型与 `mineru-pdf-workflow` 生命周期兼容（待外部项目处理） | modelpad-v1 | [Step 0 证据](plans/modelpad-workflow-compat.md#step-0-证据) |
-| [ModelPad PDF 模型优化方案](plans/modelpad-pdf-model-optimization.md) | 候选 | 阶段 1：配置层稳定性优化 | modelpad-v1, modelpad-workflow-compat | [Step 0 证据](plans/modelpad-pdf-model-optimization.md#step-0-证据) |
+| [ModelPad PDF 模型优化方案](plans/modelpad-pdf-model-optimization.md) | 已完成 | 阶段 1：配置层稳定性优化 | modelpad-v1, modelpad-workflow-compat | [阶段 1 完成证据](plans/modelpad-pdf-model-optimization.md#阶段-1-实施进展) |
 | [ModelPad 菜单栏常驻和启动配置增强](plans/modelpad-menu-bar-agent.md) | 已完成 | 三个阶段全部闭环 | modelpad-v1 | [阶段 1 证据](plans/modelpad-menu-bar-agent.md#阶段-1-完成证据) / [阶段 2 证据](plans/modelpad-menu-bar-agent.md#阶段-2-完成证据) / [阶段 3 证据](plans/modelpad-menu-bar-agent.md#阶段-3-完成证据) |
 
 允许状态：`候选`、`设计中`、`待实施`、`实施中`、`已完成`、`已替代`、`已合并`、`已废弃`。
@@ -30,7 +30,7 @@
 1. `modelpad-v1` ✅（全部阶段已完成）
 2. `modelpad-logbuffer-performance` ✅（阶段 1 已完成）
 3. `modelpad-workflow-compat` 阶段 1：等待用户在 `mineru-pdf-workflow` 项目处理，使其完全依赖 ModelPad 托管服务。
-4. `modelpad-pdf-model-optimization` 阶段 1 候选：在不改代码的前提下收敛 `pdf` 模型服务端环境变量、输出目录、日志和任务保留策略。
+4. `modelpad-pdf-model-optimization` ✅（阶段 1 已完成）
 5. `modelpad-menu-bar-agent` ✅（三个阶段全部已完成）
 
 ## 依赖关系
@@ -70,6 +70,7 @@
 | modelpad-menu-bar-agent | 阶段 2：配置编辑弹窗和 Python 脚本启动配置 | 新增 `LaunchMode` / `PythonScriptConfig`；`ModelConfig` 扩展向后兼容；`ModelDetailView` 重写为运行视图；`ModelConfigSheet` 配置弹窗；5 个模型脚本纳入项目；shell 转义修复 + 相对路径校验；106 测试通过；用户手动验收完成。详见 [阶段 2 完成证据](plans/modelpad-menu-bar-agent.md#阶段-2-完成证据)。 |
 | modelpad-menu-bar-agent | 阶段 3：MLX 引擎选项和 API 启停 UI 同步 | Engine 新增 `mlx`；API 启停后通过 `onModelStateChanged` 回调即时刷新 UI；107 测试通过；API 实操作验收完成。详见 [阶段 3 完成证据](plans/modelpad-menu-bar-agent.md#阶段-3-完成证据)。 |
 | modelpad-logbuffer-performance | 阶段 1：环形缓冲替换 | `LogBuffer` 从 `Array.removeFirst` O(n) 改为预分配定长数组 + `writeIndex` O(1) 环形缓冲；新增 3 个边界测试（单槽、覆写顺序、clear 重置）；110 测试全通过。详见 [阶段 1 完成证据](plans/modelpad-logbuffer-performance.md#阶段-1-完成证据)。 |
+| modelpad-pdf-model-optimization | 阶段 1：配置层稳定性优化 | `pdf.env` 已写入 MinerU 服务端环境变量；真实 `pdf` 服务启动后 `/health` 返回 `processing_window_size=8`、`task_retention_seconds=21600`、`max_concurrent_requests=1`；`/docs` 返回 404；停止后 9000 端口释放。待最小 PDF workflow 验收。详见 [阶段 1 实施进展](plans/modelpad-pdf-model-optimization.md#阶段-1-实施进展)。 |
 
 ## 阶段 5 输入
 
