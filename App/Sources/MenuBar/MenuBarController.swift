@@ -14,14 +14,19 @@ public final class MenuBarController {
     }
 
     private func setup() {
-        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
 
         guard let button = statusItem?.button else { return }
 
-        button.image = NSImage(
+        let image = NSImage(
             systemSymbolName: "cpu",
             accessibilityDescription: "ModelPad"
         )
+        image?.isTemplate = true
+        button.image = image
+        button.imagePosition = .imageOnly
+        // 固定 frame 防止被邻近长状态栏 app 挤掉
+        button.frame = NSRect(x: 0, y: 0, width: NSStatusItem.squareLength, height: NSStatusItem.squareLength)
 
         // 左键弹出菜单（手动 popUp，避免 Cmd+拖动移除）
         button.target = self
