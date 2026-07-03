@@ -318,12 +318,8 @@ public final class ModelProcessManager: @unchecked Sendable {
 
                 guard let text = String(data: lineData, encoding: .utf8) else { continue }
                 let segments = text.split(separator: "\r", omittingEmptySubsequences: true)
-                let meaningful = segments.filter { !$0.allSatisfy({ $0.isWhitespace }) }
-                if let first = meaningful.first {
-                    buffer.append(stream: stream, message: String(first))
-                }
-                if meaningful.count > 1, let last = meaningful.last, last != meaningful.first {
-                    buffer.append(stream: stream, message: String(last))
+                for seg in segments where !seg.allSatisfy({ $0.isWhitespace }) {
+                    buffer.append(stream: stream, message: String(seg))
                 }
             }
 
