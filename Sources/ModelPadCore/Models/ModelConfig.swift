@@ -120,4 +120,17 @@ public struct ModelConfig: Codable, Identifiable, Sendable {
         }
         return result
     }
+
+    // MARK: - 校验
+
+    /// Python 脚本模式配置是否有效：脚本路径为绝对路径，或已设置工作目录。
+    public var isPythonScriptPathValid: Bool {
+        guard launchMode == .pythonScript, let script = pythonScript else { return true }
+        let path = script.scriptPath
+        let wd = effectiveWorkDir()
+        // 绝对路径始终有效
+        if path.hasPrefix("/") || path.hasPrefix("~") { return true }
+        // 相对路径需要工作目录
+        return wd != nil
+    }
 }

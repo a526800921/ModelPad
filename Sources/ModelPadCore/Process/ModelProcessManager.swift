@@ -66,8 +66,15 @@ public final class ModelProcessManager: @unchecked Sendable {
 
         // 创建进程
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/bin/zsh")
-        process.arguments = ["-lc", config.effectiveCommand()]
+        if config.launchMode == .pythonScript, let script = config.pythonScript, !script.scriptPath.isEmpty {
+            // Python 脚本模式：绕过 shell，避免转义问题
+            let py = script.pythonExecutable ?? "python3"
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+            process.arguments = [py, script.scriptPath] + script.arguments
+        } else {
+            process.executableURL = URL(fileURLWithPath: "/bin/zsh")
+            process.arguments = ["-lc", config.command]
+        }
 
         if let workDir = config.effectiveWorkDir() {
             process.currentDirectoryURL = URL(fileURLWithPath: workDir)

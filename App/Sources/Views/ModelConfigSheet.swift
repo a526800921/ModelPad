@@ -20,6 +20,7 @@ struct ModelConfigSheet: View {
     @State private var scriptArgs: String = ""
     @State private var scriptWorkDir: String = ""
     @State private var scriptEnvText: String = ""
+    @State private var showPathWarning = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -138,6 +139,14 @@ struct ModelConfigSheet: View {
         }
         .frame(width: 520, height: 560)
         .onAppear { populateFromModel() }
+        .alert("脚本路径无效", isPresented: $showPathWarning) {
+            Button("返回修改", role: .cancel) {}
+            Button("仍然保存") {
+                if let model = buildModel() { doSave(model) }
+            }
+        } message: {
+            Text("脚本路径是相对路径，但没有设置工作目录。启动时可能找不到脚本。建议使用绝对路径或设置工作目录。")
+        }
     }
 
     // MARK: - 数据填充
@@ -164,7 +173,19 @@ struct ModelConfigSheet: View {
     // MARK: - 保存
 
     private func save() {
-        guard var model = viewModel.editingModel else { return }
+        guard let model = buildModel() else { return }
+
+        // 校验：脚本路径为相对路径且无工作目录时弹警告
+        if !model.isPythonScriptPathValid {
+            showPathWarning = true
+            return
+        }
+
+        doSave(model)
+    }
+
+    private func buildModel() -> ModelConfig? {
+        guard var model = viewModel.editingModel else { return nil }
 
         model.name = name
         model.engine = engine
@@ -191,6 +212,10 @@ struct ModelConfigSheet: View {
             model.pythonScript = nil
         }
 
+        return model
+    }
+
+    private func doSave(_ model: ModelConfig) {
         viewModel.saveModelConfig(model)
         dismiss()
     }
