@@ -203,11 +203,23 @@ VLM 兼容性修复引入了额外变更：
   - 返回 `status=stopped`。
 - 停止后 `9000` 端口已释放。
 
-待完成：
+用户已于 2026-07-04 完成手动验收：
 
-- 使用 `/Users/jafish/Documents/work/mineru-pdf-workflow` 的最小样本跑通一次解析。
-- 验证解析完成后 `9000` 端口仍保持监听，确保没有回归到外部 workflow 误杀常驻服务。
-- 验证 `MINERU_API_OUTPUT_ROOT` 指向目录产生任务输出。
+- `/Users/jafish/Documents/work/mineru-pdf-workflow` 的最小样本已跑通一次解析。
+- 解析完成后 `9000` 端口仍保持监听，没有回归到外部 workflow 误杀常驻服务。
+- `MINERU_API_OUTPUT_ROOT` 指向目录已产生任务输出。
+
+### 阶段 1 完成证据
+
+阶段 1 已于 2026-07-04 完成。
+
+完成证据：
+
+- `pdf.env` 已写入 MinerU 服务端环境变量，并由用户确认保留本机配置更新。
+- 真实 `pdf` 服务启动后 `/health` 返回 `processing_window_size=8`、`task_retention_seconds=21600`、`max_concurrent_requests=1`。
+- `/docs` 返回 `404`，说明 FastAPI docs 已按配置关闭。
+- ModelPad 停止 `pdf` 后，`9000` 端口释放。
+- 用户已完成最小 PDF workflow 手动验收，确认解析可跑通、`9000` 端口不被误杀、输出目录产生任务输出。
 
 ## 验证方式
 
@@ -258,3 +270,8 @@ VLM 兼容性修复引入了额外变更：
 | 是否开启 `--enable-vlm-preload True` | 不纳入阶段 1；阶段 2 用真实样本对比冷启动和内存 | 否 | 待评估 |
 | `MINERU_PROCESSING_WINDOW_SIZE=8` 是否适合所有 PDF | 阶段 1 保持与 workflow 当前默认一致；后续按样本调优 | 否 | 待观察 |
 | `MINERU_API_OUTPUT_ROOT` 是否需要进入项目输出包目录 | 不建议；API 临时任务输出与 workflow 最终输出包分离 | 否 | 已建议 |
+
+## 测试覆盖率
+
+- 本阶段以本机运行配置和外部 workflow 集成验收为主，没有新增代码或自动化测试。
+- 服务级验证和最小 PDF workflow 手动验收作为阶段 1 完成证据；用户确认最小 workflow 手动集成测试通过。

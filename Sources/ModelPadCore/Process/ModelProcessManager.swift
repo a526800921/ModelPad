@@ -298,10 +298,14 @@ public final class ModelProcessManager: @unchecked Sendable {
             }
             guard let text = String(data: data, encoding: .utf8) else { return }
 
-            // 按行分割写入日志缓冲
-            let lines = text.split(separator: "\n", omittingEmptySubsequences: false)
-            for line in lines where !line.isEmpty {
-                buffer.append(stream: stream, message: String(line))
+            // 按行分割，处理 tqdm 进度条的 \r 覆盖刷新
+            let rawLines = text.split(separator: "\n", omittingEmptySubsequences: false)
+            for rawLine in rawLines where !rawLine.isEmpty {
+                // \r 分隔的多个覆盖段，只保留最后一段（最终状态）
+                let segments = rawLine.split(separator: "\r", omittingEmptySubsequences: true)
+                if let final = segments.last, !final.isEmpty {
+                    buffer.append(stream: stream, message: String(final))
+                }
             }
         }
     }
