@@ -1,6 +1,7 @@
 import AppKit
 
 /// 菜单栏图标控制器：左键弹出菜单（显示面板 / 退出）。
+/// 不设置 statusItem.menu（否则 Cmd+拖动会把图标从菜单栏移除）。
 @MainActor
 public final class MenuBarController {
 
@@ -22,8 +23,20 @@ public final class MenuBarController {
             accessibilityDescription: "ModelPad"
         )
 
-        // 左键弹出下拉菜单
-        statusItem?.menu = buildMenu()
+        // 左键弹出菜单（手动 popUp，避免 Cmd+拖动移除）
+        button.target = self
+        button.action = #selector(iconClicked)
+        button.sendAction(on: [.leftMouseUp])
+    }
+
+    @objc private func iconClicked() {
+        guard let button = statusItem?.button else { return }
+        let menu = buildMenu()
+        menu.popUp(
+            positioning: nil,
+            at: NSPoint(x: 0, y: button.bounds.height),
+            in: button
+        )
     }
 
     private func buildMenu() -> NSMenu {
