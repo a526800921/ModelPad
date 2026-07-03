@@ -80,6 +80,14 @@ echo "  ✓ Info.plist"
 cp "$ICON_SRC" "$APP_BUNDLE/Contents/Resources/ModelPad.icns"
 echo "  ✓ App 图标: ModelPad.icns"
 
+# Step 6b: 复制 Python 脚本
+SCRIPTS_SRC="$PROJECT_ROOT/App/Resources/Scripts"
+if [ -d "$SCRIPTS_SRC" ]; then
+    mkdir -p "$APP_BUNDLE/Contents/Resources/Scripts"
+    cp "$SCRIPTS_SRC"/*.py "$APP_BUNDLE/Contents/Resources/Scripts/"
+    echo "  ✓ Python 脚本: $(ls "$SCRIPTS_SRC"/*.py 2>/dev/null | xargs -n1 basename | tr '\n' ' ')"
+fi
+
 # Step 7: 写入 PkgInfo
 echo -n "APPL????" > "$APP_BUNDLE/Contents/PkgInfo"
 echo "  ✓ PkgInfo"

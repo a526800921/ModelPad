@@ -67,15 +67,15 @@ public final class ModelProcessManager: @unchecked Sendable {
         // 创建进程
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/zsh")
-        process.arguments = ["-lc", config.command]
+        process.arguments = ["-lc", config.effectiveCommand()]
 
-        if let workDir = config.workDir {
+        if let workDir = config.effectiveWorkDir() {
             process.currentDirectoryURL = URL(fileURLWithPath: workDir)
         }
 
         // 注入环境变量
         var fullEnv = ProcessInfo.processInfo.environment
-        for (key, value) in config.env {
+        for (key, value) in config.effectiveEnv() {
             fullEnv[key] = value
         }
         process.environment = fullEnv

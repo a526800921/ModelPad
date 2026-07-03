@@ -18,21 +18,30 @@
 | 计划 | 状态 | 当前阶段 | 依赖 | 证据 |
 |---|---|---|---|---|
 | [ModelPad v1 实施计划](plans/modelpad-v1.md) | 已完成 | v1 全部阶段已完成 | - | [阶段 1-6 证据](plans/modelpad-v1.md#阶段-6-完成证据) |
-| [ModelPad 外部工作流兼容](plans/modelpad-workflow-compat.md) | 候选 | 阶段 1：`pdf` 模型与 `mineru-pdf-workflow` 生命周期兼容（候选） | modelpad-v1 | [Step 0 证据](plans/modelpad-workflow-compat.md#step-0-证据) |
+| [ModelPad LogBuffer 性能优化](plans/modelpad-logbuffer-performance.md) | 待实施 | 阶段 1：环形缓冲替换 | modelpad-v1 | [Step 0 证据](plans/modelpad-logbuffer-performance.md#step-0-证据) |
+| [ModelPad 外部工作流兼容](plans/modelpad-workflow-compat.md) | 候选 | 阶段 1：`pdf` 模型与 `mineru-pdf-workflow` 生命周期兼容（待外部项目处理） | modelpad-v1 | [Step 0 证据](plans/modelpad-workflow-compat.md#step-0-证据) |
+| [ModelPad PDF 模型优化方案](plans/modelpad-pdf-model-optimization.md) | 候选 | 阶段 1：配置层稳定性优化 | modelpad-v1, modelpad-workflow-compat | [Step 0 证据](plans/modelpad-pdf-model-optimization.md#step-0-证据) |
+| [ModelPad 菜单栏常驻和启动配置增强](plans/modelpad-menu-bar-agent.md) | 待实施 | 阶段 3：增加 MLX 引擎选项 | modelpad-v1 | [阶段 2 完成证据](plans/modelpad-menu-bar-agent.md#阶段-2-完成证据) |
 
 允许状态：`候选`、`设计中`、`待实施`、`实施中`、`已完成`、`已替代`、`已合并`、`已废弃`。
 
 ## 推荐顺序
 
 1. `modelpad-v1` ✅（全部阶段已完成）
-2. `modelpad-workflow-compat` 阶段 1 候选：`pdf` 模型与 `mineru-pdf-workflow` 生命周期兼容。
+2. `modelpad-logbuffer-performance` 阶段 1 待实施：优先修复日志热路径 `LogBuffer.append` 的锁内数组移位问题，将日志缓冲改为环形缓冲。
+3. `modelpad-workflow-compat` 阶段 1：等待用户在 `mineru-pdf-workflow` 项目处理，使其完全依赖 ModelPad 托管服务。
+4. `modelpad-pdf-model-optimization` 阶段 1 候选：在不改代码的前提下收敛 `pdf` 模型服务端环境变量、输出目录、日志和任务保留策略。
+5. `modelpad-menu-bar-agent` 阶段 3 待实施：增加 MLX 引擎选项，用于配置分类、列表展示和 JSON 编解码。
 
 ## 依赖关系
 
 | 计划 | 依赖 | 原因 |
 |---|---|---|
 | modelpad-v1 | - | - |
+| modelpad-logbuffer-performance | modelpad-v1 | 依赖阶段 2 已建立的 `LogBuffer`、进程输出捕获和日志测试基础 |
 | modelpad-workflow-compat | modelpad-v1 | 依赖 `.app` 启动入口、模型托管、健康检查和退出清理能力已完成 |
+| modelpad-pdf-model-optimization | modelpad-v1, modelpad-workflow-compat | 依赖 ModelPad 模型托管能力；验证需避免与外部 workflow 生命周期冲突混淆 |
+| modelpad-menu-bar-agent | modelpad-v1 | 依赖 `.app` 启动入口、菜单栏图标、退出流程和打包流程已完成 |
 
 ## 替代、合并和废弃
 
@@ -44,7 +53,7 @@
 
 | 问题 | 推荐方案 | 影响范围 | 是否阻塞当前阶段 | 状态 |
 |---|---|---|---|---|
-| - | - | - | 否 | - |
+| `mineru-pdf-workflow` 仍可能按端口 kill ModelPad 托管的 `pdf` 服务 | 用户在 `/Users/jafish/Documents/work/mineru-pdf-workflow` 项目处理，使其完全依赖 ModelPad 托管服务 | modelpad-workflow-compat | 是 | 待外部项目处理 |
 
 ## 完成证据
 
@@ -57,6 +66,7 @@
 | modelpad-v1 | 阶段 4：SwiftUI 主面板和菜单栏 | 新增 macOS App 骨架 + 10 ViewModel/装配测试；93 测试通过（83 回归 + 10 新增）；手动验收已闭环。详见 [阶段 4 完成证据](plans/modelpad-v1.md#阶段-4-完成证据)。 |
 | modelpad-v1 | 阶段 5：集成验收、菜单栏退出和空闲功耗优化 | 菜单栏左键/右键交互已修复并由用户确认；CPU/功耗由用户确认无问题；智能降频轮询已实现；构建+93 测试通过。详见 [阶段 5 完成证据](plans/modelpad-v1.md#阶段-5-完成证据)。 |
 | modelpad-v1 | 阶段 6：macOS `.app` 启动入口和日志展示精简 | 新增 `App/Resources/Info.plist`、`App/Resources/ModelPad.icns`、`scripts/build_app.sh`；`dist/ModelPad.app` ad-hoc 签名可运行并包含自定义图标；`LogView` 移除 stream tag 只保留颜色；93 测试通过。详见 [阶段 6 完成证据](plans/modelpad-v1.md#阶段-6-完成证据)。 |
+| modelpad-menu-bar-agent | 阶段 1：菜单栏交互调整和隐藏程序坞 | `LSUIElement=true` 已加入源码和 `.app`；菜单栏 icon 左键下拉菜单包含 `显示面板` / `退出`；右键事件路径已移除；用户已完成手动验收。详见 [阶段 1 完成证据](plans/modelpad-menu-bar-agent.md#阶段-1-完成证据)。 |
 
 ## 阶段 5 输入
 
@@ -72,4 +82,12 @@
 |---|---|---|---|---|
 | 2026-07-02 | 阶段 6 | 新需求 | 参考 TranslateBar 的 `.app` 启动方式，为 ModelPad 增加可从 Finder / 应用列表启动的标准 macOS App 入口。 | `/Users/jafish/Documents/work/TranslateBar/README.md` |
 | 2026-07-02 | 阶段 6 | 新需求 | 日志列表移除 `错误`、`输出` 等 stream tag，只展示实际日志内容。 | [阶段 6 候选](plans/modelpad-v1.md#阶段-6-候选macos-app-启动入口应用列表集成和日志展示精简) |
-| 2026-07-02 | 新计划 | 兼容性问题 | `pdf` 模型由 ModelPad 托管监听 9000 时，`mineru-pdf-workflow/scripts/pdf-seg` 复用端口后会按端口 kill 服务，导致托管模型被外部 workflow 误杀；需独立计划明确生命周期边界并完成兼容验收。 | [ModelPad 外部工作流兼容](plans/modelpad-workflow-compat.md)；`/Users/jafish/Documents/work/mineru-pdf-workflow/docs/run-summary-2026-07-02.md` |
+| 2026-07-03 | 新计划 | 性能优化 | `LogBuffer.append` 当前在锁内使用 `removeFirst` 触发 O(n) 数组移位；按 `deep-jingling-pike.md` 改为环形缓冲，并优先排在外部工作流兼容和菜单栏配置增强之前。 | [ModelPad LogBuffer 性能优化](plans/modelpad-logbuffer-performance.md)；`/Users/jafish/.claude/plans/deep-jingling-pike.md` |
+| 2026-07-02 | 新计划 | 兼容性问题 | `pdf` 模型由 ModelPad 托管监听 9000 时，`mineru-pdf-workflow/scripts/pdf-seg` 复用端口后会按端口 kill 服务，导致托管模型被外部 workflow 误杀；已决策由用户在 `mineru-pdf-workflow` 项目处理，使其完全依赖 ModelPad 托管服务。 | [ModelPad 外部工作流兼容](plans/modelpad-workflow-compat.md)；`/Users/jafish/Documents/work/mineru-pdf-workflow/docs/run-summary-2026-07-02.md` |
+| 2026-07-03 | 新计划 | 新需求 | ModelPad 像 TranslateBar 一样不出现在程序坞，只作为菜单栏常驻 App 运行。 | [ModelPad 菜单栏常驻和启动配置增强](plans/modelpad-menu-bar-agent.md)；`/Users/jafish/Documents/work/TranslateBar` |
+| 2026-07-03 | 后续阶段 | 新需求 | 配置中增加 Python 脚本启动配置，因为现有模型会依赖 py 脚本启动；需兼容现有 `command` 配置。 | [配置编辑弹窗和 Python 脚本启动配置](plans/modelpad-menu-bar-agent.md#阶段-2-候选配置编辑弹窗和-python-脚本启动配置) |
+| 2026-07-03 | 后续阶段 | 交互变更 | 菜单栏 icon 左键点击出现下拉菜单，把原右键 `显示面板` / `退出` 功能放到左键，移除右键事件。 | [菜单栏交互调整和隐藏程序坞](plans/modelpad-menu-bar-agent.md#阶段-1-候选菜单栏交互调整和隐藏程序坞) |
+| 2026-07-03 | 后续阶段 | UI 调整 | 模型右侧详情界面只保留操作和日志；右上角悬浮设置按钮打开弹窗，在弹窗内编辑模型配置。 | [配置编辑弹窗和 Python 脚本启动配置](plans/modelpad-menu-bar-agent.md#阶段-2-候选配置编辑弹窗和-python-脚本启动配置) |
+| 2026-07-03 | 后续阶段 | UI 调整 | 移除面板顶部右上角的启动和停止入口，避免和模型详情内操作重复。 | [配置编辑弹窗和 Python 脚本启动配置](plans/modelpad-menu-bar-agent.md#阶段-2-候选配置编辑弹窗和-python-脚本启动配置) |
+| 2026-07-03 | 阶段 3 | 新需求 | 模型设置的引擎选项中增加 `MLX`，因为现有 `Engine` 只有 `ollama`、`llamacpp`、`vllm`、`custom`，但已有模型使用 `mlx_lm.server`。 | [增加 MLX 引擎选项](plans/modelpad-menu-bar-agent.md#阶段-3-候选增加-mlx-引擎选项) |
+| 2026-07-03 | 新计划 | 性能优化 | `pdf` 模型当前只配置 `PYENV_ROOT` 和基础启动参数；服务端相关 MinerU 环境变量仍主要出现在外部 workflow 中，常驻服务启动后不会受后续 workflow env 影响。 | [ModelPad PDF 模型优化方案](plans/modelpad-pdf-model-optimization.md) |

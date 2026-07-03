@@ -20,6 +20,7 @@ public final class AppViewModel: ObservableObject {
     @Published public var hasUnsavedChanges = false
     @Published public var statusMessages: [UUID: ModelStatus] = [:]
     @Published public var pids: [UUID: Int32?] = [:]
+    @Published public var showConfigSheet = false
 
     // 日志定时刷新
     private var refreshTimer: Timer?
@@ -65,6 +66,7 @@ public final class AppViewModel: ObservableObject {
         editingModel = model
         saveAllModels()
         hasUnsavedChanges = false
+        showConfigSheet = true
     }
 
     public func updateEditingModel(name: String? = nil, engine: Engine? = nil, command: String? = nil,
@@ -86,6 +88,17 @@ public final class AppViewModel: ObservableObject {
     }
 
     public func saveEditingModel(_ model: ModelConfig) {
+        guard let idx = models.firstIndex(where: { $0.id == model.id }) else { return }
+        var m = model
+        m.updatedAt = Date()
+        models[idx] = m
+        editingModel = m
+        hasUnsavedChanges = false
+        saveAllModels()
+    }
+
+    /// 直接保存一份完整的模型配置（用于配置弹窗）。
+    public func saveModelConfig(_ model: ModelConfig) {
         guard let idx = models.firstIndex(where: { $0.id == model.id }) else { return }
         var m = model
         m.updatedAt = Date()

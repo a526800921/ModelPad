@@ -1,7 +1,7 @@
 import SwiftUI
 import ModelPadCore
 
-/// 右侧模型详情区：配置编辑 + 操作 + 日志。
+/// 右侧模型运行视图：状态 + 启停操作 + 日志，配置编辑移入弹窗。
 public struct ModelDetailView: View {
     @EnvironmentObject var viewModel: AppViewModel
 
@@ -9,83 +9,36 @@ public struct ModelDetailView: View {
 
     public var body: some View {
         if let model = viewModel.editingModel {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    configSection(model: model)
-                    Divider()
-                    actionSection(model: model)
-                    Divider()
-                    LogView(modelId: model.id)
-                }
-                .padding()
-            }
-        }
-    }
-
-    // MARK: - 配置区
-
-    private func configSection(model: ModelConfig) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text("配置").font(.headline)
-                Spacer()
-                if viewModel.hasUnsavedChanges {
-                    Text("未保存").font(.caption).foregroundColor(.orange)
-                }
-                Button("保存") { viewModel.saveEditingModel(model) }
-                    .disabled(!viewModel.hasUnsavedChanges)
-            }
-
-            // 名称
-            fieldRow(label: "名称") {
-                TextField("模型名称", text: Binding(
-                    get: { model.name },
-                    set: { viewModel.updateEditingModel(name: $0) }
-                ))
-                .textFieldStyle(.roundedBorder)
-            }
-
-            // 引擎
-            fieldRow(label: "引擎") {
-                Picker("", selection: Binding(
-                    get: { model.engine },
-                    set: { viewModel.updateEditingModel(engine: $0) }
-                )) {
-                    ForEach(Engine.allCases, id: \.self) { engine in
-                        Text(engineDisplayName(engine)).tag(engine)
+            VStack(spacing: 0) {
+                // 标题栏：模型名称 + 设置齿轮
+                HStack {
+                    Text(model.name)
+                        .font(.headline)
+                    Spacer()
+                    Button(action: { viewModel.showConfigSheet = true }) {
+                        Image(systemName: "gearshape")
                     }
+                    .help("模型设置")
                 }
-                .pickerStyle(.segmented)
-            }
+                .padding(.horizontal)
+                .padding(.vertical, 8)
 
-            // 命令
-            fieldRow(label: "启动命令") {
-                TextEditor(text: Binding(
-                    get: { model.command },
-                    set: { viewModel.updateEditingModel(command: $0) }
-                ))
-                .font(.system(.body, design: .monospaced))
-                .frame(height: 50)
-                .overlay(RoundedRectangle(cornerRadius: 4).stroke(.secondary.opacity(0.3)))
-            }
+                Divider()
 
-            // 端口
-            fieldRow(label: "端口") {
-                TextField("可选", value: Binding(
-                    get: { model.port },
-                    set: { viewModel.updateEditingModel(port: $0) }
-                ), format: .number.grouping(.never))
-                .textFieldStyle(.roundedBorder)
-                .frame(width: 100)
-            }
+                // 操作区
+                actionSection(model: model)
+                    .padding()
 
-            // 工作目录
-            fieldRow(label: "工作目录") {
-                TextField("可选", text: Binding(
-                    get: { model.workDir ?? "" },
-                    set: { viewModel.updateEditingModel(workDir: $0) }
-                ))
-                .textFieldStyle(.roundedBorder)
+                Divider()
+
+                // 日志区
+                LogView(modelId: model.id)
+                    .padding()
+                    .frame(maxHeight: .infinity)
+            }
+            .frame(maxHeight: .infinity)
+            .sheet(isPresented: $viewModel.showConfigSheet) {
+                ModelConfigSheet()
             }
         }
     }
@@ -122,24 +75,6 @@ public struct ModelDetailView: View {
                 }
                 .disabled(status != .running)
             }
-        }
-    }
-
-    // MARK: - 辅助
-
-    private func fieldRow<Content: View>(label: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(label).font(.caption).foregroundColor(.secondary)
-            content()
-        }
-    }
-
-    private func engineDisplayName(_ engine: Engine) -> String {
-        switch engine {
-        case .ollama: return "Ollama"
-        case .llamacpp: return "llama.cpp"
-        case .vllm: return "vLLM"
-        case .custom: return "自定义"
         }
     }
 }

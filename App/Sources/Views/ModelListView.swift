@@ -12,15 +12,8 @@ public struct ModelListView: View {
     public var body: some View {
         VStack(spacing: 0) {
             // 标题栏
-            HStack {
-                Text("模型")
-                    .font(.headline)
-                Spacer()
-                Button(action: { viewModel.newModel() }) {
-                    Image(systemName: "plus")
-                }
-                .help("添加模型")
-            }
+            Text("模型")
+                .font(.headline)
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
 

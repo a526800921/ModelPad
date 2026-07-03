@@ -38,7 +38,7 @@ public struct LogView: View {
                     }
                     .padding(4)
                 }
-                .frame(maxHeight: 200)
+                .frame(maxHeight: .infinity)
                 .background(Color.black.opacity(0.06))
                 .cornerRadius(6)
                 .onChange(of: logs.count) { _, _ in

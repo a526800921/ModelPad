@@ -27,18 +27,7 @@ public struct MainWindow: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .toolbar {
-            ToolbarItemGroup {
-                Button(action: { viewModel.startAllModels() }) {
-                    Label("全部启动", systemImage: "play.fill")
-                }
-                .help("启动所有已停止或错误状态的模型")
 
-                Button(action: { viewModel.stopAllModels() }) {
-                    Label("全部停止", systemImage: "stop.fill")
-                }
-                .help("停止所有运行中的模型")
-            }
-        }
+
     }
 }
