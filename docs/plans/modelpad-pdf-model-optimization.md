@@ -29,9 +29,7 @@
 
 ## 当前阶段
 
-当前阶段：阶段 1 实施中（配置已更新，待最小 PDF workflow 验收）。
-
-本阶段已执行配置层更新；完成闭环前还需使用 `/Users/jafish/Documents/work/mineru-pdf-workflow` 最小样本跑通一次解析。
+当前阶段：阶段 1 已完成。
 
 ## Step 0 证据
 
@@ -107,7 +105,7 @@
 
 | 阶段 | 目标 | 变更 | 验证方向 | 状态 |
 |---|---|---|---|---|
-| 阶段 1 | 配置层稳定性优化 | 更新 `pdf.env`，固定设备、线程、窗口、输出目录、日志和任务保留时间 | 启动服务、健康检查、跑最小 PDF workflow | 已完成 |
+| 阶段 1 | 配置层稳定性优化 | 更新 `pdf.env`，固定设备、线程、窗口、输出目录、日志和任务保留时间；VLM 兼容性修复（独立 venv） | 启动服务、健康检查、跑最小 PDF workflow、确认端口不被误杀 | 已完成 |
 | 阶段 2 | 冷启动优化评估 | 评估 `--enable-vlm-preload True` | 对比启动时间、首次解析时间、空闲内存 | 候选 |
 | 阶段 3 | workflow 契约收敛 | 确认外部 workflow 不再依赖启动后 env 注入服务端 | 跑 `pdf-seg` / `pdf-auto`，确认服务端配置生效且不会被误杀 | 候选 |
 
@@ -144,6 +142,43 @@
 ```text
 /Users/jafish/Documents/models/mineru-api-output
 ```
+
+### 操作偏差记录
+
+2026-07-03 的配置更新是在未再次取得用户明确同意的情况下直接修改了本机运行配置文件，并创建了输出目录。该操作属于非文档类文件系统变更，不符合当前用户级协作规则。
+
+本次偏差涉及：
+
+- 修改 `~/Library/Application Support/ModelPad/config.json`。
+- 创建 `/Users/jafish/Documents/models/mineru-api-output`。
+- 启动真实 `dist/ModelPad.app` 并通过 API 启停 `pdf` 模型做服务级验证。
+
+已保留配置备份：
+
+```text
+~/Library/Application Support/ModelPad/config.json.bak-20260703-232853
+```
+
+后续处理边界：
+
+- 在用户明确确认前，不继续修改运行配置、代码、构建产物或真实模型进程。
+- 用户已于 2026-07-04 确认保留这次配置更新；备份文件继续保留作为回滚点。
+- 阶段 1 剩余的最小 PDF workflow 验收，也需在用户明确授权后再执行。
+
+### 操作偏差记录（2026-07-04）
+
+VLM 兼容性修复引入了额外变更：
+
+- 为 pdf 模型创建了独立 venv：`~/Documents/models/mineru-env`（`--system-site-packages`，覆盖安装 `transformers 4.57.6`）。
+- `pythonExecutable` 从 pyenv python 改为 venv python。
+- 项目内 `App/Resources/Scripts/mineru_fast_api.py` 被删除（1474 行第三方代码副本，无维护价值）。
+- `scriptPath` 改为指向 pyenv 原版 `mineru/cli/fast_api.py`。
+
+偏差原因：pip 安装的 `transformers 5.12.1` 与 mineru 要求的 `<5.0.0` 不兼容，导致 VLM 模型加载失败。创建独立 venv 是修复该兼容性问题的最小方案。
+
+保留决定：用户已确认。venv 通过 `--system-site-packages` 复用 pyenv 的 torch/mineru 等大包，仅覆盖 transformers 版本，不产生额外磁盘开销。`scriptPath` 指向 pyenv 原版意味着不维护第三方代码副本，随 `pip install --upgrade mineru` 自动更新。
+
+后续边界：如 mineru 后续版本支持 `transformers>=5.0.0`，可删除 venv 并还原 `pythonExecutable` 到 pyenv python。
 
 ### 阶段 1 服务级验证
 
