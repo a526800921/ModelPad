@@ -300,9 +300,10 @@ public final class ModelProcessManager: @unchecked Sendable {
             guard !data.isEmpty else {
                 // EOF：输出残留
                 if !partial.data.isEmpty, let text = String(data: partial.data, encoding: .utf8) {
-                    let final = text.split(separator: "\r", omittingEmptySubsequences: true).last
-                    if let msg = final, !msg.isEmpty {
-                        buffer.append(stream: stream, message: String(msg))
+                    let trimmed = text.split(separator: "\r", omittingEmptySubsequences: true).last
+                        .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) } ?? ""
+                    if !trimmed.isEmpty {
+                        buffer.append(stream: stream, message: trimmed)
                     }
                 }
                 handle.readabilityHandler = nil
@@ -318,18 +319,21 @@ public final class ModelProcessManager: @unchecked Sendable {
 
                 guard let text = String(data: lineData, encoding: .utf8) else { continue }
                 let segments = text.split(separator: "\r", omittingEmptySubsequences: true)
-                for seg in segments where !seg.allSatisfy({ $0.isWhitespace }) {
-                    buffer.append(stream: stream, message: String(seg))
+                for seg in segments {
+                    let trimmed = seg.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !trimmed.isEmpty {
+                        buffer.append(stream: stream, message: trimmed)
+                    }
                 }
             }
 
             // 超过 4KB 还没 \n：纯 \r 进度条，输出当前状态
             if partial.data.count > 4096 {
                 if let text = String(data: partial.data, encoding: .utf8) {
-                    let final = text.split(separator: "\r", omittingEmptySubsequences: true).last
-                    if let msg = final, !msg.isEmpty,
-                       !msg.allSatisfy({ $0.isWhitespace }) {
-                        buffer.append(stream: stream, message: String(msg))
+                    let trimmed = text.split(separator: "\r", omittingEmptySubsequences: true).last
+                        .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) } ?? ""
+                    if !trimmed.isEmpty {
+                        buffer.append(stream: stream, message: trimmed)
                     }
                 }
                 partial.data.removeAll()
