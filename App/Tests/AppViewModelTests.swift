@@ -226,3 +226,238 @@ func makeTestViewModel() -> (AppViewModel, ConfigStore, ModelProcessManager) {
         #expect(pm.status(for: m2.id) == .stopped)  // 本来就 stopped
     }
 }
+
+// MARK: - 配置刷新（reloadModels）
+
+@Suite(.serialized) struct ConfigReloadTests {
+
+    @Test("reloadModels 从磁盘重新读取新模型")
+    @MainActor
+    func reloadModelsPicksUpNewModel() throws {
+        let (vm, store, _) = makeTestViewModel()
+
+        // 初始为空
+        #expect(vm.models.isEmpty)
+
+        // 绕过 ViewModel 直接写入配置
+        let newModel = ModelConfig(name: "外部添加", engine: .custom, command: "echo hi")
+        var config = try store.load()
+        config.models.append(newModel)
+        try store.save(config)
+
+        // 刷新
+        vm.reloadModels()
+
+        #expect(vm.models.count == 1)
+        #expect(vm.models[0].name == "外部添加")
+    }
+
+    @Test("reloadModels 刷新前自动保存未保存编辑")
+    @MainActor
+    func reloadModelsSavesUnsavedEditsFirst() throws {
+        let (vm, store, _) = makeTestViewModel()
+        vm.newModel()
+        vm.selectModel(vm.models[0].id)
+        vm.updateEditingModel(name: "已改名")
+
+        #expect(vm.hasUnsavedChanges == true)
+
+        vm.reloadModels()
+
+        // 刷新后未保存变更已持久化
+        let saved = try store.load()
+        #expect(saved.models[0].name == "已改名")
+        #expect(vm.hasUnsavedChanges == false)
+    }
+
+    @Test("reloadModels 当前选中模型仍存在时保持选中")
+    @MainActor
+    func reloadModelsPreservesSelection() throws {
+        let (vm, store, _) = makeTestViewModel()
+        vm.newModel()
+        vm.newModel()
+        let m1Id = vm.models[0].id
+
+        vm.selectModel(m1Id)
+        #expect(vm.selectedModelId == m1Id)
+
+        // 绕过 ViewModel 更新配置（保留两个模型）
+        var config = try store.load()
+        config.models[0].name = "M1-renamed"
+        try store.save(config)
+
+        vm.reloadModels()
+
+        #expect(vm.selectedModelId == m1Id)
+        #expect(vm.editingModel?.name == "M1-renamed")
+    }
+
+    @Test("reloadModels 当前选中模型已删除时选择第一个")
+    @MainActor
+    func reloadModelsFallsBackToFirstWhenSelectedGone() throws {
+        let (vm, store, _) = makeTestViewModel()
+        vm.newModel()
+        vm.newModel()
+        let m1Id = vm.models[0].id
+        let m2Id = vm.models[1].id
+
+        vm.selectModel(m1Id)
+
+        // 绕过 ViewModel 删除 m1
+        var config = try store.load()
+        config.models.removeAll(where: { $0.id == m1Id })
+        try store.save(config)
+
+        vm.reloadModels()
+
+        #expect(vm.selectedModelId == m2Id)
+        #expect(vm.editingModel?.id == m2Id)
+    }
+
+    @Test("reloadModels 列表为空时清空选中和编辑态")
+    @MainActor
+    func reloadModelsClearsSelectionWhenEmpty() throws {
+        let (vm, store, _) = makeTestViewModel()
+        vm.newModel()
+        vm.selectModel(vm.models[0].id)
+
+        // 绕过 ViewModel 清空配置
+        var config = try store.load()
+        config.models = []
+        try store.save(config)
+
+        vm.reloadModels()
+
+        #expect(vm.models.isEmpty)
+        #expect(vm.selectedModelId == nil)
+        #expect(vm.editingModel == nil)
+    }
+
+    @Test("reloadModels 不启动任何模型")
+    @MainActor
+    func reloadModelsDoesNotStartModels() throws {
+        let (vm, store, pm) = makeTestViewModel()
+
+        // 写入一个带有效命令的模型
+        let model = ModelConfig(name: "NotStarted", engine: .custom, command: "sleep 10")
+        var config = try store.load()
+        config.models.append(model)
+        try store.save(config)
+
+        vm.reloadModels()
+
+        #expect(vm.models.count == 1)
+        #expect(pm.status(for: vm.models[0].id) == .stopped)
+    }
+
+    @Test("reloadModels 不停止运行中模型")
+    @MainActor
+    func reloadModelsDoesNotStopRunningModels() throws {
+        let (vm, store, pm) = makeTestViewModel()
+        vm.newModel()
+        let id = vm.models[0].id
+        vm.selectModel(id)
+        vm.updateEditingModel(command: "sleep 60")
+        vm.saveEditingModel(vm.models[0])
+
+        // 启动模型
+        _ = try pm.start(config: vm.models[0])
+        #expect(pm.status(for: id) == .running)
+
+        // 写入新模型但保留运行中的
+        let newModel = ModelConfig(name: "新增", engine: .custom, command: "echo hi")
+        var config = try store.load()
+        config.models.append(newModel)
+        try store.save(config)
+
+        vm.reloadModels()
+
+        #expect(vm.models.count == 2)
+        #expect(pm.status(for: id) == .running, "刷新不应停止运行中模型")
+
+        _ = pm.stop(modelId: id)
+    }
+
+    @Test("reloadModels 配置损坏时保留旧列表")
+    @MainActor
+    func reloadModelsPreservesStateOnCorruptedConfig() throws {
+        let (vm, store, _) = makeTestViewModel()
+        vm.newModel()
+        vm.selectModel(vm.models[0].id)
+        let originalCount = vm.models.count
+        let originalId = vm.selectedModelId
+
+        // 破坏 config.json
+        let fileURL = store.baseDirectory.appendingPathComponent("config.json")
+        try "{ bad json".write(to: fileURL, atomically: true, encoding: .utf8)
+
+        vm.reloadModels()
+
+        // 应保留旧状态
+        #expect(vm.models.count == originalCount, "损坏时保留旧模型列表")
+        #expect(vm.selectedModelId == originalId, "损坏时保留旧选中项")
+    }
+
+    @Test("reloadModels 存在未保存编辑且配置损坏时，保存操作会覆盖损坏文件并成功刷新")
+    @MainActor
+    func reloadModelsUnsavedChangesSavedBeforeCorruptionCheck() throws {
+        let (vm, store, _) = makeTestViewModel()
+        vm.newModel()
+        vm.selectModel(vm.models[0].id)
+        vm.updateEditingModel(name: "未保存")
+
+        #expect(vm.hasUnsavedChanges == true)
+
+        // 破坏 config.json
+        let fileURL = store.baseDirectory.appendingPathComponent("config.json")
+        try "{ corrupt".write(to: fileURL, atomically: true, encoding: .utf8)
+
+        vm.reloadModels()
+
+        // 由于 saveEditingModel 先于损坏检测执行，保存会覆盖损坏文件并成功刷新
+        #expect(vm.hasUnsavedChanges == false, "保存操作覆盖损坏文件，刷新成功")
+
+        // 验证未保存编辑已持久化
+        let saved = try store.load()
+        #expect(saved.models.count == 1)
+        #expect(saved.models[0].name == "未保存")
+    }
+
+    @Test("reloadModels 从配置中删除的模型不在列表中显示")
+    @MainActor
+    func reloadModelsRemovesDeletedModelFromList() throws {
+        let (vm, store, _) = makeTestViewModel()
+        vm.newModel()
+        vm.newModel()
+        let m1Id = vm.models[0].id
+
+        // 绕过 ViewModel 删除 m1
+        var config = try store.load()
+        config.models.removeAll(where: { $0.id == m1Id })
+        try store.save(config)
+
+        vm.reloadModels()
+
+        #expect(vm.models.count == 1)
+        #expect(!vm.models.contains(where: { $0.id == m1Id }))
+    }
+
+    @Test("reloadModels hasUnsavedChanges 刷新后为 false")
+    @MainActor
+    func reloadModelsClearsUnsavedChanges() throws {
+        let (vm, store, _) = makeTestViewModel()
+        vm.newModel()
+        vm.selectModel(vm.models[0].id)
+        vm.updateEditingModel(name: "改名")
+
+        #expect(vm.hasUnsavedChanges == true)
+
+        vm.reloadModels()
+
+        #expect(vm.hasUnsavedChanges == false)
+
+        // 编辑内容已保存
+        let saved = try store.load()
+        #expect(saved.models[0].name == "改名")
+    }
+}

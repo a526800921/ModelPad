@@ -28,6 +28,11 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObjec
                 viewModel?.refreshStatus()
             }
         }
+        viewModel.apiServer.onConfigReloadRequested = { [weak viewModel] in
+            DispatchQueue.main.async {
+                viewModel?.reloadModels()
+            }
+        }
         do {
             try viewModel.apiServer.start()
         } catch {

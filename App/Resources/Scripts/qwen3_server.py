@@ -261,6 +261,11 @@ def main():
     parser.add_argument("--repetition-context-size", type=int, default=20,
                         help="重复惩罚窗口大小（默认 20）")
 
+    # 思考模式
+    parser.add_argument("--reasoning", default="auto",
+                        choices=["on", "off", "auto"],
+                        help="思考/推理模式（默认 auto）")
+
     args = parser.parse_args()
     app.state.args = args
 

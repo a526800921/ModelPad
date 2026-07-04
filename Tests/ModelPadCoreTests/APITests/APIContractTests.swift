@@ -657,4 +657,153 @@ func startEmptyEnvObject() async throws {
     #expect(json["status"] as? String == "running")
 }
 
+// MARK: - POST /api/config/reload
+
+@Test("POST /api/config/reload 成功返回刷新后的模型列表")
+func configReloadReturnsModels() async throws {
+    let (server, store, _, port) = try makeTestServer()
+    _ = try saveTestModel(named: "ReloadTest", command: "echo hi", to: store)
+    try server.start()
+    defer { try? server.stop() }
+
+    let (status, json) = try await apiRequest(
+        method: "POST",
+        path: "/api/config/reload",
+        port: port
+    )
+    #expect(status == 200)
+    #expect(json["ok"] as? Bool == true)
+
+    let models = json["models"] as? [[String: Any]]
+    #expect(models?.count == 1)
+    #expect(models?[0]["name"] as? String == "ReloadTest")
+}
+
+@Test("POST /api/config/reload 空配置返回空列表 200")
+func configReloadEmptyConfig() async throws {
+    let (server, _, _, port) = try makeTestServer()
+    try server.start()
+    defer { try? server.stop() }
+
+    let (status, json) = try await apiRequest(
+        method: "POST",
+        path: "/api/config/reload",
+        port: port
+    )
+    #expect(status == 200)
+    #expect(json["ok"] as? Bool == true)
+    let models = json["models"] as? [[String: Any]]
+    #expect(models?.isEmpty == true)
+}
+
+@Test("POST /api/config/reload 配置损坏返回 config_reload_failed")
+func configReloadCorruptedConfig() async throws {
+    let (server, store, _, port) = try makeTestServer()
+    // 确保目录存在
+    if !FileManager.default.fileExists(atPath: store.baseDirectory.path) {
+        try FileManager.default.createDirectory(at: store.baseDirectory, withIntermediateDirectories: true)
+    }
+    // 破坏 config.json
+    let fileURL = store.baseDirectory.appendingPathComponent("config.json")
+    try "{ bad json".write(to: fileURL, atomically: true, encoding: .utf8)
+    try server.start()
+    defer { try? server.stop() }
+
+    let (status, json) = try await apiRequest(
+        method: "POST",
+        path: "/api/config/reload",
+        port: port
+    )
+    #expect(status == 400)
+    #expect(json["ok"] as? Bool == false)
+    let error = json["error"] as? [String: Any]
+    #expect(error?["code"] as? String == "config_reload_failed")
+}
+
+@Test("POST /api/config/reload 不修改磁盘配置")
+func configReloadDoesNotMutateConfig() async throws {
+    let (server, store, _, port) = try makeTestServer()
+    let model = try saveTestModel(named: "Original", command: "echo hi", to: store)
+    try server.start()
+    defer { try? server.stop() }
+
+    _ = try await apiRequest(method: "POST", path: "/api/config/reload", port: port)
+
+    // 验证配置未被修改
+    let config = try store.load()
+    #expect(config.models.count == 1)
+    #expect(config.models[0].id == model.id)
+}
+
+@Test("POST /api/config/reload 不启停任何模型进程")
+func configReloadDoesNotStartOrStopProcesses() async throws {
+    let (server, store, pm, port) = try makeTestServer()
+    let running = try saveTestModel(named: "Running", command: "sleep 60", to: store)
+    let stopped = try saveTestModel(named: "Stopped", command: "sleep 10", to: store)
+    try server.start()
+    defer {
+        _ = pm.stop(modelId: running.id)
+        try? server.stop()
+    }
+
+    // 只启动 running
+    _ = try pm.start(config: running)
+    #expect(pm.status(for: running.id) == .running)
+    #expect(pm.status(for: stopped.id) == .stopped)
+
+    _ = try await apiRequest(method: "POST", path: "/api/config/reload", port: port)
+
+    // 刷新后进程状态不变
+    #expect(pm.status(for: running.id) == .running, "刷新不应停止运行中模型")
+    #expect(pm.status(for: stopped.id) == .stopped, "刷新不应启动已停止模型")
+}
+
+@Test("POST /api/config/reload 不暴露敏感字段")
+func configReloadExcludesSensitiveFields() async throws {
+    let (server, store, _, port) = try makeTestServer()
+    _ = try saveTestModel(named: "Safe", command: "secret", to: store)
+    try server.start()
+    defer { try? server.stop() }
+
+    let (_, json) = try await apiRequest(method: "POST", path: "/api/config/reload", port: port)
+    let models = json["models"] as? [[String: Any]]
+    let m = models?.first
+    #expect(m?["command"] == nil)
+    #expect(m?["workDir"] == nil)
+    #expect(m?["env"] == nil)
+}
+
+// MARK: - 既有 API 回归
+
+@Test("reload 后 GET /api/models 列表与刷新响应一致")
+func listModelsMatchesReloadResponse() async throws {
+    let (server, store, _, port) = try makeTestServer()
+    _ = try saveTestModel(named: "Consistent", command: "echo hi", to: store)
+    try server.start()
+    defer { try? server.stop() }
+
+    let (_, reloadJson) = try await apiRequest(method: "POST", path: "/api/config/reload", port: port)
+    let (_, listJson) = try await apiRequest(method: "GET", path: "/api/models", port: port)
+
+    let reloadModels = reloadJson["models"] as? [[String: Any]]
+    let listModels = listJson["models"] as? [[String: Any]]
+
+    #expect(reloadModels?.count == listModels?.count)
+    #expect(reloadModels?[0]["name"] as? String == listModels?[0]["name"] as? String)
+    #expect(reloadModels?[0]["id"] as? String == listModels?[0]["id"] as? String)
+}
+
+@Test("reload 后既有端点 GET /api/health 仍正常")
+func healthStillWorksAfterReload() async throws {
+    let (server, _, _, port) = try makeTestServer()
+    try server.start()
+    defer { try? server.stop() }
+
+    _ = try await apiRequest(method: "POST", path: "/api/config/reload", port: port)
+
+    let (status, json) = try await apiRequest(method: "GET", path: "/api/health", port: port)
+    #expect(status == 200)
+    #expect(json["ok"] as? Bool == true)
+}
+
 } // APIContractTests

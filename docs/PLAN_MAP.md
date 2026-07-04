@@ -24,6 +24,7 @@
 | [ModelPad 菜单栏常驻和启动配置增强](plans/modelpad-menu-bar-agent.md) | 已完成 | 三个阶段全部闭环 | modelpad-v1 | [阶段 1 证据](plans/modelpad-menu-bar-agent.md#阶段-1-完成证据) / [阶段 2 证据](plans/modelpad-menu-bar-agent.md#阶段-2-完成证据) / [阶段 3 证据](plans/modelpad-menu-bar-agent.md#阶段-3-完成证据) |
 | [ModelPad 启动接口环境变量覆盖](plans/modelpad-api-start-env-overrides.md) | 已完成 | 阶段 1：启动接口一次性环境变量覆盖 | modelpad-v1, modelpad-menu-bar-agent | [阶段 1 完成证据](plans/modelpad-api-start-env-overrides.md#阶段-1-完成证据) |
 | [ModelPad 菜单栏服务列表](plans/modelpad-menu-service-list.md) | 已完成 | 阶段 1：菜单栏下拉菜单展示服务列表和状态点 | modelpad-v1, modelpad-menu-bar-agent | [阶段 1 完成证据](plans/modelpad-menu-service-list.md#阶段-1-完成证据) |
+| [ModelPad 配置刷新](plans/modelpad-config-refresh.md) | 已完成 | 阶段 1：面板刷新按钮和本地刷新接口 | modelpad-v1, modelpad-menu-bar-agent | [阶段 1 完成证据](plans/modelpad-config-refresh.md#阶段-1-完成证据) |
 
 允许状态：`候选`、`设计中`、`待实施`、`实施中`、`已完成`、`已替代`、`已合并`、`已废弃`。
 
@@ -36,6 +37,7 @@
 5. `modelpad-menu-bar-agent` ✅（三个阶段全部已完成）
 6. `modelpad-api-start-env-overrides` ✅（阶段 1：启动接口一次性环境变量覆盖）
 7. `modelpad-menu-service-list` ✅（阶段 1：菜单栏下拉菜单展示服务列表和状态点）
+8. `modelpad-config-refresh` ✅（阶段 1：面板刷新按钮和本地刷新接口）
 
 ## 依赖关系
 
@@ -48,6 +50,7 @@
 | modelpad-menu-bar-agent | modelpad-v1 | 依赖 `.app` 启动入口、菜单栏图标、退出流程和打包流程已完成 |
 | modelpad-api-start-env-overrides | modelpad-v1, modelpad-menu-bar-agent | 依赖 v1 本地 HTTP API、模型托管、环境变量注入能力，以及后续 Python 脚本环境变量合并能力已完成 |
 | modelpad-menu-service-list | modelpad-v1, modelpad-menu-bar-agent | 依赖已完成的菜单栏下拉菜单、模型配置列表和状态同步基础 |
+| modelpad-config-refresh | modelpad-v1, modelpad-menu-bar-agent | 依赖已完成的配置持久化、左侧模型列表、AppViewModel 模型缓存和本地 HTTP API |
 
 ## 替代、合并和废弃
 
@@ -59,7 +62,7 @@
 
 | 问题 | 推荐方案 | 影响范围 | 是否阻塞当前阶段 | 状态 |
 |---|---|---|---|---|
-| - | - | - | 否 | 当前无阻塞项 |
+| `modelpad-config-refresh` 涉及非文档代码改动 | 等待用户明确批准开始实现后再修改 Swift 代码、测试和构建配置 | 配置刷新计划阶段 1 | 是 | ✅ 已批准并完成 |
 
 ## 完成证据
 
@@ -95,6 +98,7 @@
 |---|---|---|---|
 | 2026-07-04 | 新需求 | 启动服务接口增加环境变量配置能力，默认作为本次启动的一次性 env 覆盖，不持久化、不通过查询接口泄露。 | [ModelPad 启动接口环境变量覆盖](plans/modelpad-api-start-env-overrides.md) |
 | 2026-07-04 | 新需求 | 点击菜单栏 icon 时，下拉菜单展示全部服务；服务项使用状态点 + 名称，运行中绿点、停止或未运行灰点；服务项阶段 1 只读；该需求此前不在后续已承诺计划中，旧菜单栏计划曾明确列为非范围，现在作为独立计划记录。 | [ModelPad 菜单栏服务列表](plans/modelpad-menu-service-list.md) |
+| 2026-07-04 | 新需求 | 左侧模型列表新增刷新按钮，并提供本地刷新接口；用于手动编辑 `config.json` 增加模型后，重新读取配置并更新面板缓存。 | [ModelPad 配置刷新](plans/modelpad-config-refresh.md) |
 
 历史候选输入已归档：2026-07-02 至 2026-07-03 期间记录的 `.app` 启动入口、日志 tag 移除、LogBuffer 性能优化、外部 workflow 兼容、菜单栏常驻、Python 脚本启动配置、配置弹窗、MLX 引擎和 API 启停 UI 同步等输入，均已被 `modelpad-v1`、`modelpad-logbuffer-performance`、`modelpad-workflow-compat`、`modelpad-menu-bar-agent` 或 `modelpad-pdf-model-optimization` 吸收并完成。
 

@@ -17,6 +17,9 @@ public final class APIServer: @unchecked Sendable {
     /// API 启停操作后回调，用于通知 UI 刷新状态。
     public var onModelStateChanged: (@Sendable () -> Void)?
 
+    /// 配置重载请求回调，由 App 层绑定到 AppViewModel.reloadModels()。
+    public var onConfigReloadRequested: (@Sendable () -> Void)?
+
     private var channel: Channel?
     private var group: MultiThreadedEventLoopGroup?
 
@@ -41,11 +44,13 @@ public final class APIServer: @unchecked Sendable {
         let store: ConfigStore = configStore
         let pm: ModelProcessManager = processManager
         let stateChanged = self.onModelStateChanged
+        let configReloaded = self.onConfigReloadRequested
 
         let bootstrap = ServerBootstrap(group: group)
             .childChannelInitializer { channel in
                 let handler = APIHandler(processManager: pm, configStore: store)
                 handler.onModelStateChanged = stateChanged
+                handler.onConfigReloadRequested = configReloaded
                 return channel.pipeline.configureHTTPServerPipeline().flatMap {
                     channel.pipeline.addHandler(handler)
                 }
@@ -76,6 +81,7 @@ private final class APIHandler: ChannelInboundHandler {
     private let configStore: ConfigStore
 
     var onModelStateChanged: (@Sendable () -> Void)?
+    var onConfigReloadRequested: (@Sendable () -> Void)?
 
     private var method: HTTPMethod = .GET
     private var path: String = ""
@@ -136,6 +142,11 @@ private final class APIHandler: ChannelInboundHandler {
             return handleListModels()
         }
 
+        // POST /api/config/reload
+        if method == .POST, path == "/api/config/reload" {
+            return handleConfigReload()
+        }
+
         guard prefix, components[1] == "models", count >= 3 else {
             return .error(ErrorResponse(code: "not_found", message: "Route not found"))
         }
@@ -183,16 +194,45 @@ private final class APIHandler: ChannelInboundHandler {
 
     // MARK: - 处理器
 
-    private func handleListModels() -> APIResponse {
-        let config = (try? configStore.load()) ?? .default
-        let summaries = config.models.map { c in
+    /// 从 AppConfig 构建模型摘要列表（复用逻辑，避免 handleListModels 与 handleConfigReload 漂移）。
+    private func buildModelSummaries(from config: AppConfig) -> [ModelSummary] {
+        config.models.map { c in
             ModelSummary(
                 from: c,
                 status: processManager.status(for: c.id),
                 pid: processManager.pid(for: c.id)
             )
         }
-        return .success(.models(summaries))
+    }
+
+    private func handleListModels() -> APIResponse {
+        let config = (try? configStore.load()) ?? .default
+        return .success(.models(buildModelSummaries(from: config)))
+    }
+
+    private func handleConfigReload() -> APIResponse {
+        let fileURL = configStore.baseDirectory.appendingPathComponent("config.json")
+
+        guard FileManager.default.fileExists(atPath: fileURL.path) else {
+            // 配置文件不存在：视为空配置（200）
+            onConfigReloadRequested?()
+            return .success(.models(buildModelSummaries(from: .default)))
+        }
+
+        guard let data = try? Data(contentsOf: fileURL) else {
+            return .error(ErrorResponse(code: "config_reload_failed", message: "无法读取配置文件"))
+        }
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        guard let config = try? decoder.decode(AppConfig.self, from: data) else {
+            return .error(ErrorResponse(code: "config_reload_failed", message: "配置文件格式无效"))
+        }
+
+        // 通知 UI 刷新模型列表
+        onConfigReloadRequested?()
+
+        return .success(.models(buildModelSummaries(from: config)))
     }
 
     private func handleGetModel(id: String) -> APIResponse {

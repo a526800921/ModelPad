@@ -49,6 +49,12 @@ public struct ModelListView: View {
                 .labelStyle(.iconOnly)
                 .help("添加模型")
 
+                Button(action: { viewModel.reloadModels() }) {
+                    Label("刷新", systemImage: "arrow.clockwise")
+                }
+                .labelStyle(.iconOnly)
+                .help("重新读取配置")
+
                 Spacer()
 
                 if let selectedId = viewModel.selectedModelId {

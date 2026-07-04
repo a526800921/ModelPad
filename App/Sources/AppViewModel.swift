@@ -37,10 +37,61 @@ public final class AppViewModel: ObservableObject {
 
     // MARK: - 配置管理
 
+    /// 重新读取 config.json 并更新模型列表。
+    ///
+    /// 行为契约（参见 docs/plans/modelpad-config-refresh.md）：
+    /// - 刷新前自动保存未保存编辑（复用 selectModel 的保存策略）；
+    /// - 配置文件不存在时视为空配置；
+    /// - 配置文件损坏时保留旧内存状态，输出错误日志；
+    /// - 当前选中模型仍存在时保持选中并同步 editingModel；
+    /// - 当前选中模型已不存在时选中第一个，列表为空则清空；
+    /// - 刷新后将 hasUnsavedChanges 置为 false；
+    /// - 刷新不启停任何模型进程。
     public func reloadModels() {
-        let config = (try? configStore.load()) ?? .default
-        models = config.models
+        // 刷新前保存未保存编辑
+        if hasUnsavedChanges, let current = editingModel {
+            saveEditingModel(current)
+        }
+
+        let fileURL = configStore.baseDirectory.appendingPathComponent("config.json")
+        let newModels: [ModelConfig]
+
+        if FileManager.default.fileExists(atPath: fileURL.path) {
+            guard let data = try? Data(contentsOf: fileURL),
+                  let config = decodeConfig(from: data) else {
+                // 配置文件损坏：保留旧内存状态
+                print("[ModelPad] 配置刷新失败：config.json 格式无效，保留当前列表")
+                return
+            }
+            newModels = config.models
+        } else {
+            // 配置文件不存在，视为空配置
+            newModels = []
+        }
+
+        let previousSelectedId = selectedModelId
+        models = newModels
+
+        // 恢复选中状态
+        if let id = previousSelectedId, models.contains(where: { $0.id == id }) {
+            editingModel = models.first(where: { $0.id == id })
+        } else if let first = models.first {
+            selectedModelId = first.id
+            editingModel = first
+        } else {
+            selectedModelId = nil
+            editingModel = nil
+        }
+
+        hasUnsavedChanges = false
         refreshStatus()
+    }
+
+    /// 尝试解码 JSON 数据为 AppConfig，失败返回 nil。
+    private func decodeConfig(from data: Data) -> AppConfig? {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return try? decoder.decode(AppConfig.self, from: data)
     }
 
     public func selectModel(_ id: UUID?) {
