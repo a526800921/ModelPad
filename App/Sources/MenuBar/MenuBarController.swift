@@ -35,7 +35,7 @@ public final class MenuBarController: NSObject {
 
         guard let button = statusItem?.button else { return }
 
-        let image = Self.makeMenuBarIcon(size: 20)
+        let image = Self.makeMenuBarIcon(size: 22)
         button.image = image
         button.imagePosition = .imageOnly
         // 固定 frame 防止被邻近长状态栏 app 挤掉
@@ -118,42 +118,41 @@ public final class MenuBarController: NSObject {
 
     private static func makeMenuBarIcon(size: CGFloat) -> NSImage {
         let image = NSImage(size: NSSize(width: size, height: size))
+        image.isTemplate = true
+        image.accessibilityDescription = "ModelPad"
+
         image.lockFocus()
 
-        let iconRect = NSRect(x: 1.5, y: 1.5, width: size - 3, height: size - 3)
-        let radius = size * 0.22
-        let background = NSBezierPath(roundedRect: iconRect, xRadius: radius, yRadius: radius)
+        // 圆角边框（参照 TranslateBar 风格）
+        let inset: CGFloat = 1
+        let borderRect = NSRect(x: inset, y: inset, width: size - inset * 2, height: size - inset * 2)
+        let path = NSBezierPath(roundedRect: borderRect, xRadius: 4, yRadius: 4)
+        path.lineWidth = 1.2
+        NSColor.black.setStroke()
+        path.stroke()
 
-        NSColor.systemBlue.setFill()
-        background.fill()
-
-        NSColor.white.withAlphaComponent(0.72).setStroke()
-        background.lineWidth = 1
-        background.stroke()
-
+        // 文字
         let paragraph = NSMutableParagraphStyle()
         paragraph.alignment = .center
 
-        let font = NSFont.systemFont(ofSize: size * 0.52, weight: .semibold)
+        let font = NSFont.systemFont(ofSize: 13, weight: .regular)
         let attributes: [NSAttributedString.Key: Any] = [
             .font: font,
-            .foregroundColor: NSColor.white,
+            .foregroundColor: NSColor.black,
             .paragraphStyle: paragraph
         ]
 
         let text = "模" as NSString
         let textSize = text.size(withAttributes: attributes)
-        let rect = NSRect(
-            x: 0,
-            y: (size - textSize.height) / 2 - size * 0.01,
-            width: size,
+        let textRect = NSRect(
+            x: (size - textSize.width) / 2,
+            y: (size - textSize.height) / 2,
+            width: textSize.width,
             height: textSize.height
         )
-        text.draw(in: rect, withAttributes: attributes)
+        text.draw(in: textRect, withAttributes: attributes)
 
         image.unlockFocus()
-        image.isTemplate = false
-        image.accessibilityDescription = "ModelPad"
         return image
     }
 
