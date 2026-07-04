@@ -252,21 +252,21 @@ func makeTestViewModel() -> (AppViewModel, ConfigStore, ModelProcessManager) {
         #expect(vm.models[0].name == "外部添加")
     }
 
-    @Test("reloadModels 刷新前自动保存未保存编辑")
+    @Test("reloadModels 仅从磁盘重载，updateEditingModel 的未保存修改会被覆盖")
     @MainActor
-    func reloadModelsSavesUnsavedEditsFirst() throws {
-        let (vm, store, _) = makeTestViewModel()
+    func reloadModelsOverwritesUnsavedInMemoryEdits() throws {
+        let (vm, _, _) = makeTestViewModel()
         vm.newModel()
         vm.selectModel(vm.models[0].id)
-        vm.updateEditingModel(name: "已改名")
+        vm.updateEditingModel(name: "内存中改名")
 
         #expect(vm.hasUnsavedChanges == true)
+        #expect(vm.models[0].name == "内存中改名")
 
         vm.reloadModels()
 
-        // 刷新后未保存变更已持久化
-        let saved = try store.load()
-        #expect(saved.models[0].name == "已改名")
+        // 磁盘上仍是 "新模型"，reload 覆盖了内存中的修改
+        #expect(vm.models[0].name == "新模型")
         #expect(vm.hasUnsavedChanges == false)
     }
 
@@ -398,9 +398,9 @@ func makeTestViewModel() -> (AppViewModel, ConfigStore, ModelProcessManager) {
         #expect(vm.selectedModelId == originalId, "损坏时保留旧选中项")
     }
 
-    @Test("reloadModels 存在未保存编辑且配置损坏时，保存操作会覆盖损坏文件并成功刷新")
+    @Test("reloadModels 配置损坏时保留内存状态，hasUnsavedChanges 不变")
     @MainActor
-    func reloadModelsUnsavedChangesSavedBeforeCorruptionCheck() throws {
+    func reloadModelsPreservesUnsavedChangesOnCorruption() throws {
         let (vm, store, _) = makeTestViewModel()
         vm.newModel()
         vm.selectModel(vm.models[0].id)
@@ -414,13 +414,10 @@ func makeTestViewModel() -> (AppViewModel, ConfigStore, ModelProcessManager) {
 
         vm.reloadModels()
 
-        // 由于 saveEditingModel 先于损坏检测执行，保存会覆盖损坏文件并成功刷新
-        #expect(vm.hasUnsavedChanges == false, "保存操作覆盖损坏文件，刷新成功")
-
-        // 验证未保存编辑已持久化
-        let saved = try store.load()
-        #expect(saved.models.count == 1)
-        #expect(saved.models[0].name == "未保存")
+        // 损坏直接 return，内存状态完全保留
+        #expect(vm.hasUnsavedChanges == true, "损坏时内存状态不变")
+        #expect(vm.models.count == 1)
+        #expect(vm.models[0].name == "未保存")
     }
 
     @Test("reloadModels 从配置中删除的模型不在列表中显示")
@@ -456,8 +453,8 @@ func makeTestViewModel() -> (AppViewModel, ConfigStore, ModelProcessManager) {
 
         #expect(vm.hasUnsavedChanges == false)
 
-        // 编辑内容已保存
+        // reload 从磁盘重载，updateEditingModel 的内存修改被覆盖
         let saved = try store.load()
-        #expect(saved.models[0].name == "改名")
+        #expect(saved.models[0].name == "新模型")
     }
 }

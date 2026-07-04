@@ -109,7 +109,7 @@ async def ensure_model(args):
 
 
 # ---------- 推理 ----------
-def generate_sync(prompt_tokens: list, args, cached_prompt: list):
+def generate_sync(prompt_tokens: list, args, cached_prompt: list, max_tokens: int = None):
     """同步生成 token 序列，返回完整结果。"""
     from mlx_lm.sample_utils import make_sampler, make_logits_processors
 
@@ -143,6 +143,8 @@ def generate_sync(prompt_tokens: list, args, cached_prompt: list):
     # 前向传播
     from mlx_lm.generate import generate_step
 
+    effective_max_tokens = max_tokens if max_tokens is not None else args.max_tokens
+
     generated_tokens = []
     tic = time.perf_counter()
     n_tokens = 0
@@ -150,7 +152,7 @@ def generate_sync(prompt_tokens: list, args, cached_prompt: list):
     for token, _ in generate_step(
         prompt,
         model,
-        max_tokens=args.max_tokens,
+        max_tokens=effective_max_tokens,
         sampler=sampler,
         prompt_cache=cache,
         prefill_step_size=args.prefill_step_size,
@@ -183,10 +185,14 @@ async def chat_completions(req: ChatRequest):
 
     # 构建 chat template prompt
     if hasattr(tokenizer, "apply_chat_template") and tokenizer.chat_template:
+        template_kwargs = {}
+        if app.state.args.reasoning == "off":
+            template_kwargs["enable_thinking"] = False
         prompt_text = tokenizer.apply_chat_template(
             [m.model_dump() for m in req.messages],
             add_generation_prompt=True,
             tokenize=False,
+            **template_kwargs,
         )
     else:
         prompt_text = "\n".join(
@@ -206,6 +212,7 @@ async def chat_completions(req: ChatRequest):
             prompt_tokens,
             app.state.args,
             [],
+            req.max_tokens,
         )
 
     completion_text = tokenizer.decode(generated)

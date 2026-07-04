@@ -48,11 +48,6 @@ public final class AppViewModel: ObservableObject {
     /// - 刷新后将 hasUnsavedChanges 置为 false；
     /// - 刷新不启停任何模型进程。
     public func reloadModels() {
-        // 刷新前保存未保存编辑
-        if hasUnsavedChanges, let current = editingModel {
-            saveEditingModel(current)
-        }
-
         let fileURL = configStore.baseDirectory.appendingPathComponent("config.json")
         let newModels: [ModelConfig]
 
