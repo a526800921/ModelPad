@@ -42,26 +42,23 @@ public struct ModelListView: View {
             .listStyle(.sidebar)
 
             // 底部按钮
-            HStack {
+            HStack(spacing: 4) {
                 Button(action: { viewModel.newModel() }) {
-                    Label("添加", systemImage: "plus")
+                    Image(systemName: "plus")
                 }
-                .labelStyle(.iconOnly)
                 .help("添加模型")
 
                 Button(action: { viewModel.reloadModels() }) {
-                    Label("刷新", systemImage: "arrow.clockwise")
+                    Image(systemName: "arrow.clockwise")
                 }
-                .labelStyle(.iconOnly)
                 .help("重新读取配置")
 
                 Spacer()
 
                 if let selectedId = viewModel.selectedModelId {
                     Button(action: { requestDelete(selectedId) }) {
-                        Label("删除", systemImage: "trash")
+                        Image(systemName: "trash")
                     }
-                    .labelStyle(.iconOnly)
                     .help("删除选中模型")
                     .disabled(viewModel.models.isEmpty)
                 }
