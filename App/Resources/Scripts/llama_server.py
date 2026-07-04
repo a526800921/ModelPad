@@ -75,6 +75,8 @@ def build_args(args) -> list[str]:
         cmd += ["-ctk", args.cache_type_k]
     if args.cache_type_v:
         cmd += ["-ctv", args.cache_type_v]
+    if args.mlock:
+        cmd += ["--mlock"]
     return cmd
 
 
@@ -109,6 +111,10 @@ def main():
                         choices=["f32", "f16", "bf16", "q8_0", "q4_0", "q4_1", "iq4_nl", "q5_0", "q5_1"])
     parser.add_argument("--cache-type-v", "-ctv", default=None,
                         choices=["f32", "f16", "bf16", "q8_0", "q4_0", "q4_1", "iq4_nl", "q5_0", "q5_1"])
+
+    # 内存锁定
+    parser.add_argument("--mlock", action="store_true",
+                        help="锁定内存防止 swap")
 
     # 投机解码
     parser.add_argument("--spec-type", default=None,

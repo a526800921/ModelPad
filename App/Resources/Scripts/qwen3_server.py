@@ -11,6 +11,7 @@ import os
 import argparse
 import asyncio
 import time
+import json
 import logging
 from contextlib import asynccontextmanager
 from typing import Optional, List, Dict, Any
@@ -38,12 +39,20 @@ logger = logging.getLogger(__name__)
 model = None
 tokenizer = None
 model_lock = asyncio.Lock()
+last_active = time.time()
+
 
 # ---------- FastAPI ----------
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Server starting (lazy-load mode, model loads on first request).")
+
+    # 空闲卸载后台任务
+    idle_task = asyncio.create_task(idle_unload_loop(app.state.args))
+
     yield
+
+    idle_task.cancel()
     logger.info("Server shutting down.")
 
 
@@ -86,7 +95,8 @@ class ChatResponse(BaseModel):
 
 # ---------- 模型加载 ----------
 async def ensure_model(args):
-    global model, tokenizer
+    global model, tokenizer, last_active
+    last_active = time.time()
     if model is not None:
         return
     async with model_lock:
@@ -106,6 +116,43 @@ async def ensure_model(args):
             )
         else:
             logger.info("KV cache quantization disabled")
+
+
+async def idle_unload_loop(args):
+    """后台循环：空闲超时后卸载模型释放内存。"""
+    global model, tokenizer, last_active
+
+    # 请求活动追踪中间件
+    from starlette.middleware.base import BaseHTTPMiddleware
+
+    class ActivityTracker(BaseHTTPMiddleware):
+        async def dispatch(self, request, call_next):
+            global last_active
+            if request.url.path != "/health":
+                last_active = time.time()
+            return await call_next(request)
+
+    app.add_middleware(ActivityTracker)
+
+    while True:
+        await asyncio.sleep(30)
+        if model is None:
+            continue
+        if not hasattr(args, "idle_timeout") or args.idle_timeout <= 0:
+            continue
+        idle = time.time() - last_active
+        if idle >= args.idle_timeout:
+            async with model_lock:
+                if model is None:
+                    continue
+                logger.info(
+                    f"Idle {idle:.0f}s >= {args.idle_timeout}s, unloading model ..."
+                )
+                model = None
+                tokenizer = None
+                import gc
+                gc.collect()
+                logger.info("Model unloaded, memory released.")
 
 
 # ---------- 推理 ----------
@@ -147,7 +194,74 @@ def generate_sync(prompt_tokens: list, args, cached_prompt: list, max_tokens: in
 
     generated_tokens = []
     tic = time.perf_counter()
+    gen_tic = tic
     n_tokens = 0
+    prefill_done = False
+    last_pct = 0
+
+    def prompt_progress(current, total):
+        nonlocal last_pct
+        pct = int(current / total * 100)
+        if pct >= last_pct + 10:
+            logger.info(f"Prompt {current}/{total} ({pct}%)")
+            last_pct = pct
+
+    for token, _ in generate_step(
+        prompt,
+        model,
+        max_tokens=effective_max_tokens,
+        sampler=sampler,
+        prompt_cache=cache,
+        prefill_step_size=args.prefill_step_size,
+        logits_processors=logits_processors,
+        prompt_progress_callback=prompt_progress,
+    ):
+        if not prefill_done:
+            prefill_elapsed = max(time.perf_counter() - tic, 0.001)
+            logger.info(
+                f"Prompt processed in {prefill_elapsed:.2f}s "
+                f"({len(prompt_tokens)} tokens, "
+                f"{len(prompt_tokens) / prefill_elapsed:.1f} t/s)"
+            )
+            prefill_done = True
+            gen_tic = time.perf_counter()
+        token_id = token.item() if hasattr(token, "item") else token
+        if token_id in tokenizer.eos_token_ids:
+            break
+        generated_tokens.append(token_id)
+        n_tokens += 1
+
+    gen_elapsed = max(time.perf_counter() - gen_tic, 0.001)
+    logger.info(
+        f"Generated {n_tokens} tokens in {gen_elapsed:.1f}s "
+        f"({n_tokens / gen_elapsed:.1f} tok/s)"
+    )
+
+    return generated_tokens
+
+
+def generate_stream(prompt_tokens: list, args, max_tokens: int = None):
+    """流式生成 token，yield (token_id, partial_text)。"""
+    from mlx_lm.sample_utils import make_sampler, make_logits_processors
+    from mlx_lm.generate import generate_step
+
+    prompt = mx.array(prompt_tokens)
+    sampler = make_sampler(temp=args.temperature, top_p=args.top_p)
+    logits_processors = make_logits_processors(
+        repetition_penalty=args.repetition_penalty,
+        repetition_context_size=args.repetition_context_size,
+    )
+    cache = make_prompt_cache(model)
+    if args.kv_bits:
+        for i, c in enumerate(cache):
+            if hasattr(c, "to_quantized"):
+                cache[i] = c.to_quantized(
+                    group_size=args.kv_group_size, bits=args.kv_bits
+                )
+
+    effective_max_tokens = max_tokens if max_tokens is not None else args.max_tokens
+    generated_ids = []
+    prev_text = ""
 
     for token, _ in generate_step(
         prompt,
@@ -161,16 +275,11 @@ def generate_sync(prompt_tokens: list, args, cached_prompt: list, max_tokens: in
         token_id = token.item() if hasattr(token, "item") else token
         if token_id in tokenizer.eos_token_ids:
             break
-        generated_tokens.append(token_id)
-        n_tokens += 1
-
-    elapsed = time.perf_counter() - tic
-    logger.info(
-        f"Generated {n_tokens} tokens in {elapsed:.1f}s "
-        f"({n_tokens / elapsed:.1f} tok/s)"
-    )
-
-    return generated_tokens
+        generated_ids.append(token_id)
+        full_text = tokenizer.decode(generated_ids)
+        delta = full_text[len(prev_text):]
+        prev_text = full_text
+        yield token_id, delta
 
 
 # ---------- 路由 ----------
@@ -179,29 +288,113 @@ async def health():
     return {"status": "ok", "model_loaded": model is not None}
 
 
-@app.post("/v1/chat/completions", response_model=ChatResponse)
-async def chat_completions(req: ChatRequest):
-    await ensure_model(app.state.args)
+@app.get("/v1/models")
+async def list_models():
+    model_name = app.state.args.model.split("/")[-1] if app.state.args.model else "qwen3"
+    return {
+        "object": "list",
+        "data": [
+            {
+                "id": model_name,
+                "object": "model",
+                "created": int(time.time()),
+                "owned_by": "mlx",
+            }
+        ],
+    }
 
-    # 构建 chat template prompt
+
+def build_prompt(messages, reasoning):
+    """构建 prompt token 列表。"""
     if hasattr(tokenizer, "apply_chat_template") and tokenizer.chat_template:
         template_kwargs = {}
-        if app.state.args.reasoning == "off":
+        if reasoning == "off":
             template_kwargs["enable_thinking"] = False
         prompt_text = tokenizer.apply_chat_template(
-            [m.model_dump() for m in req.messages],
+            messages,
             add_generation_prompt=True,
             tokenize=False,
             **template_kwargs,
         )
     else:
         prompt_text = "\n".join(
-            f"{m.role}: {m.content}" for m in req.messages
+            f"{m['role']}: {m['content']}" for m in messages
         ) + "\nassistant: "
+    return tokenizer.encode(prompt_text)
 
-    prompt_tokens = tokenizer.encode(prompt_text)
 
-    # 推理
+@app.post("/v1/chat/completions")
+async def chat_completions(req: ChatRequest):
+    await ensure_model(app.state.args)
+
+    messages = [m.model_dump() for m in req.messages]
+    prompt_tokens = build_prompt(messages, app.state.args.reasoning)
+
+    if req.stream:
+        from starlette.responses import StreamingResponse
+
+        async def event_stream():
+            from concurrent.futures import ThreadPoolExecutor
+            import queue
+
+            q: queue.Queue = queue.Queue()
+            chat_id = f"chatcmpl-{int(time.time())}"
+
+            def run():
+                try:
+                    for token_id, partial_text in generate_stream(
+                        prompt_tokens, app.state.args, req.max_tokens
+                    ):
+                        q.put(("token", token_id, partial_text))
+                    q.put(("done", None, None))
+                except Exception as e:
+                    q.put(("error", str(e), None))
+
+            loop = asyncio.get_event_loop()
+            with ThreadPoolExecutor(max_workers=1) as pool:
+                future = loop.run_in_executor(pool, run)
+
+                while True:
+                    try:
+                        item = await loop.run_in_executor(None, q.get, True, 0.1)
+                    except queue.Empty:
+                        continue
+
+                    kind = item[0]
+                    if kind == "done":
+                        chunk = {
+                            "id": chat_id,
+                            "object": "chat.completion.chunk",
+                            "created": int(time.time()),
+                            "model": app.state.args.model.split("/")[-1],
+                            "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+                        }
+                        yield f"data: {json.dumps(chunk)}\n\n"
+                        yield "data: [DONE]\n\n"
+                        break
+                    elif kind == "token":
+                        _, token_id, partial_text = item
+                        chunk = {
+                            "id": chat_id,
+                            "object": "chat.completion.chunk",
+                            "created": int(time.time()),
+                            "model": app.state.args.model.split("/")[-1],
+                            "choices": [{"index": 0, "delta": {"content": partial_text}, "finish_reason": None}],
+                        }
+                        yield f"data: {json.dumps(chunk)}\n\n"
+                    elif kind == "error":
+                        yield f"data: {json.dumps({'error': item[1]})}\n\n"
+                        break
+
+                await future
+
+        return StreamingResponse(
+            event_stream(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
+        )
+
+    # 非流式
     from concurrent.futures import ThreadPoolExecutor
 
     loop = asyncio.get_event_loop()
@@ -220,7 +413,7 @@ async def chat_completions(req: ChatRequest):
     return ChatResponse(
         id=f"chatcmpl-{int(time.time())}",
         created=int(time.time()),
-        model=app.state.args.model,
+        model=app.state.args.model.split("/")[-1],
         choices=[
             ChatChoice(
                 index=0,
@@ -272,6 +465,10 @@ def main():
     parser.add_argument("--reasoning", default="auto",
                         choices=["on", "off", "auto"],
                         help="思考/推理模式（默认 auto）")
+
+    # 空闲回收
+    parser.add_argument("--idle-timeout", type=int, default=300,
+                        help="空闲超时自动卸载模型（秒），0 表示不卸载（默认 300）")
 
     args = parser.parse_args()
     app.state.args = args
