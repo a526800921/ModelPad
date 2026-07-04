@@ -23,6 +23,7 @@
 | [ModelPad PDF 模型优化方案](plans/modelpad-pdf-model-optimization.md) | 已完成 | 阶段 1：配置层稳定性优化 | modelpad-v1, modelpad-workflow-compat | [阶段 1 完成证据](plans/modelpad-pdf-model-optimization.md#阶段-1-完成证据) |
 | [ModelPad 菜单栏常驻和启动配置增强](plans/modelpad-menu-bar-agent.md) | 已完成 | 三个阶段全部闭环 | modelpad-v1 | [阶段 1 证据](plans/modelpad-menu-bar-agent.md#阶段-1-完成证据) / [阶段 2 证据](plans/modelpad-menu-bar-agent.md#阶段-2-完成证据) / [阶段 3 证据](plans/modelpad-menu-bar-agent.md#阶段-3-完成证据) |
 | [ModelPad 启动接口环境变量覆盖](plans/modelpad-api-start-env-overrides.md) | 已完成 | 阶段 1：启动接口一次性环境变量覆盖 | modelpad-v1, modelpad-menu-bar-agent | [阶段 1 完成证据](plans/modelpad-api-start-env-overrides.md#阶段-1-完成证据) |
+| [ModelPad 菜单栏服务列表](plans/modelpad-menu-service-list.md) | 已完成 | 阶段 1：菜单栏下拉菜单展示服务列表和状态点 | modelpad-v1, modelpad-menu-bar-agent | [阶段 1 完成证据](plans/modelpad-menu-service-list.md#阶段-1-完成证据) |
 
 允许状态：`候选`、`设计中`、`待实施`、`实施中`、`已完成`、`已替代`、`已合并`、`已废弃`。
 
@@ -34,6 +35,7 @@
 4. `modelpad-pdf-model-optimization` ✅（阶段 1 已完成）
 5. `modelpad-menu-bar-agent` ✅（三个阶段全部已完成）
 6. `modelpad-api-start-env-overrides` ✅（阶段 1：启动接口一次性环境变量覆盖）
+7. `modelpad-menu-service-list` ✅（阶段 1：菜单栏下拉菜单展示服务列表和状态点）
 
 ## 依赖关系
 
@@ -45,6 +47,7 @@
 | modelpad-pdf-model-optimization | modelpad-v1, modelpad-workflow-compat | 依赖 ModelPad 模型托管能力；验证需避免与外部 workflow 生命周期冲突混淆 |
 | modelpad-menu-bar-agent | modelpad-v1 | 依赖 `.app` 启动入口、菜单栏图标、退出流程和打包流程已完成 |
 | modelpad-api-start-env-overrides | modelpad-v1, modelpad-menu-bar-agent | 依赖 v1 本地 HTTP API、模型托管、环境变量注入能力，以及后续 Python 脚本环境变量合并能力已完成 |
+| modelpad-menu-service-list | modelpad-v1, modelpad-menu-bar-agent | 依赖已完成的菜单栏下拉菜单、模型配置列表和状态同步基础 |
 
 ## 替代、合并和废弃
 
@@ -76,6 +79,7 @@
 | modelpad-workflow-compat | 阶段 1：`pdf` 模型与 `mineru-pdf-workflow` 生命周期兼容 | 用户确认外部项目已完成；`mineru-pdf-workflow` 的 `modelpad-pdf-service-lifecycle` 计划已闭环，`pdf-seg`/`pdf-auto`/`pdf-rerun` 只复用 ModelPad PDF 服务，不再启动、重启、停止或清理共享运行目录。详见 [阶段 1 完成证据](plans/modelpad-workflow-compat.md#阶段-1-完成证据)。 |
 | modelpad-pdf-model-optimization | 阶段 1：配置层稳定性优化 | `pdf.env` 已写入 MinerU 服务端环境变量；真实 `pdf` 服务启动后 `/health` 返回 `processing_window_size=8`、`task_retention_seconds=21600`、`max_concurrent_requests=1`；`/docs` 返回 404；停止后 9000 端口释放。该配置更新存在一次未获明确授权的非文档变更偏差，已在专项计划记录，用户已确认保留；用户已完成最小 PDF workflow 手动验收，确认解析可跑通、`9000` 不被误杀、输出目录产生任务输出。详见 [阶段 1 完成证据](plans/modelpad-pdf-model-optimization.md#阶段-1-完成证据)。 |
 | modelpad-api-start-env-overrides | 阶段 1：启动接口一次性环境变量覆盖 | `StartModelRequest` DTO + `envOverrides` 参数 + API body 解析 + 11 个新契约测试；120 测试全通过（commit `83eeb9c`）。详见 [阶段 1 完成证据](plans/modelpad-api-start-env-overrides.md#阶段-1-完成证据)。 |
+| modelpad-menu-service-list | 阶段 1：菜单栏下拉菜单展示服务列表和状态点 | `MenuBarController` 注入 `AppViewModel`，`menuWillOpen` 触发轻量刷新后读取 models/statusMessages 重建菜单；4 种状态颜色圆点（绿/黄/红/灰）+ 只读服务项 + 分隔线 + 面板/退出；6 个新菜单构建测试 + 全部 126 测试通过。详见 [阶段 1 完成证据](plans/modelpad-menu-service-list.md#阶段-1-完成证据)。 |
 
 ## 阶段 5 输入
 
@@ -90,6 +94,7 @@
 | 日期 | 类型 | 摘要 | 吸收计划 |
 |---|---|---|---|
 | 2026-07-04 | 新需求 | 启动服务接口增加环境变量配置能力，默认作为本次启动的一次性 env 覆盖，不持久化、不通过查询接口泄露。 | [ModelPad 启动接口环境变量覆盖](plans/modelpad-api-start-env-overrides.md) |
+| 2026-07-04 | 新需求 | 点击菜单栏 icon 时，下拉菜单展示全部服务；服务项使用状态点 + 名称，运行中绿点、停止或未运行灰点；服务项阶段 1 只读；该需求此前不在后续已承诺计划中，旧菜单栏计划曾明确列为非范围，现在作为独立计划记录。 | [ModelPad 菜单栏服务列表](plans/modelpad-menu-service-list.md) |
 
 历史候选输入已归档：2026-07-02 至 2026-07-03 期间记录的 `.app` 启动入口、日志 tag 移除、LogBuffer 性能优化、外部 workflow 兼容、菜单栏常驻、Python 脚本启动配置、配置弹窗、MLX 引擎和 API 启停 UI 同步等输入，均已被 `modelpad-v1`、`modelpad-logbuffer-performance`、`modelpad-workflow-compat`、`modelpad-menu-bar-agent` 或 `modelpad-pdf-model-optimization` 吸收并完成。
 

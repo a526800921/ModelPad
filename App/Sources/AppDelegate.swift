@@ -35,9 +35,12 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObjec
         }
 
         // 设置菜单栏
-        menuBarController = MenuBarController { [weak self] in
-            self?.showMainWindow()
-        }
+        menuBarController = MenuBarController(
+            onShowPanel: { [weak self] in
+                self?.showMainWindow()
+            },
+            appViewModel: viewModel
+        )
 
         // 显示主窗口
         showMainWindow()
