@@ -28,9 +28,6 @@ public struct ModelListView: View {
                         isSelected: viewModel.selectedModelId == model.id
                     )
                     .tag(model.id)
-                    .onTapGesture {
-                        viewModel.selectModel(model.id)
-                    }
                 }
                 .onDelete { indexSet in
                     for idx in indexSet {
@@ -40,6 +37,9 @@ public struct ModelListView: View {
                 }
             }
             .listStyle(.sidebar)
+            .onChange(of: viewModel.selectedModelId) { newId in
+                viewModel.selectModel(newId)
+            }
 
             // 底部按钮
             HStack(spacing: 4) {
