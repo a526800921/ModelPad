@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """
-Qwen3 专用推理服务 — 支持 K q8 / V q4 混合精度 KV Cache 量化。
+Qwen3 推理服务 — 懒加载模型 + FastAPI + 可选 KV cache 量化。
 
-基于 MLX mlx_lm.server 架构，增加自定义 QuantizedKVCache 以支持
-K/V 不同量化精度，同时复用 mlx_lm 的模型加载和 tokenizer。
+通过 make_prompt_cache 适配所有 MLX 模型架构（Qwen3.5 GatedDeltaNet +
+FlashAttention 混合架构及传统 transformer），对支持标准 KVCache 的层
+可开启统一精度量化（--kv-bits 8）。
 """
 
 import os
@@ -18,7 +19,7 @@ import mlx.core as mx
 import mlx.nn as nn
 from mlx_lm import load
 from mlx_lm.tokenizer_utils import TokenizerWrapper
-from mlx_lm.models.cache import make_prompt_cache, QuantizedKVCache, KVCache
+from mlx_lm.models.cache import make_prompt_cache
 
 os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 
@@ -31,52 +32,6 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s",
 )
 logger = logging.getLogger(__name__)
-
-# ---------- 自定义 K/V 混合精度量化 Cache ----------
-class MixedQuantizedKVCache:
-    """支持 K 和 V 使用不同 bit 宽度的量化 KV Cache。"""
-
-    def __init__(self, group_size: int = 64, k_bits: int = 8, v_bits: int = 4):
-        self.keys = None
-        self.values = None
-        self.offset = 0
-        self.group_size = group_size
-        self.k_bits = k_bits
-        self.v_bits = v_bits
-
-    @classmethod
-    def from_cache(
-        cls, cache, group_size: int = 64, k_bits: int = 8, v_bits: int = 4
-    ):
-        """从普通 KVCache 创建混合精度量化 cache。"""
-        q = cls(group_size=group_size, k_bits=k_bits, v_bits=v_bits)
-        q.offset = cache.offset
-        if cache.keys is not None:
-            q.keys = mx.quantize(cache.keys, group_size=group_size, bits=k_bits)
-            q.values = mx.quantize(cache.values, group_size=group_size, bits=v_bits)
-        return q
-
-
-def make_mixed_quantized_cache(
-    model: nn.Module,
-    k_bits: int = 8,
-    v_bits: int = 4,
-    group_size: int = 64,
-    quantized_kv_start: int = 0,
-) -> list:
-    """创建混合精度 KV cache，前 quantized_kv_start 层不量化。"""
-    num_layers = len(model.layers)
-    caches = []
-    for i in range(num_layers):
-        if i < quantized_kv_start:
-            caches.append(KVCache())
-        else:
-            caches.append(
-                MixedQuantizedKVCache(
-                    group_size=group_size, k_bits=k_bits, v_bits=v_bits
-                )
-            )
-    return caches
 
 
 # ---------- 全局 ----------
@@ -142,18 +97,15 @@ async def ensure_model(args):
         model, tokenizer = load(args.model, tokenizer_config={})
         logger.info(f"Model loaded in {time.time() - t0:.1f}s")
 
-        # 日志打印 cache 量化策略
-        if args.kv_k_bits and args.kv_v_bits:
+        # 打印 cache 量化策略
+        if args.kv_bits:
             logger.info(
-                f"KV cache quantization: K q{args.kv_k_bits} / V q{args.kv_v_bits}, "
-                f"group_size={args.kv_group_size}, "
-                f"quantize from layer {args.quantized_kv_start}"
+                f"KV cache quantization enabled: q{args.kv_bits}, "
+                f"group_size={args.kv_group_size} "
+                f"(only layers with standard KVCache)"
             )
-        elif args.kv_bits:
-            logger.info(
-                f"KV cache quantization: K/V q{args.kv_bits}, "
-                f"group_size={args.kv_group_size}"
-            )
+        else:
+            logger.info("KV cache quantization disabled")
 
 
 # ---------- 推理 ----------
@@ -164,25 +116,23 @@ def generate_sync(prompt_tokens: list, args, cached_prompt: list):
     prompt = mx.array(prompt_tokens)
     sampler = make_sampler(temp=args.temperature, top_p=args.top_p)
 
-    # 创建 KV cache
-    if args.kv_k_bits and args.kv_v_bits:
-        cache = make_mixed_quantized_cache(
-            model,
-            k_bits=args.kv_k_bits,
-            v_bits=args.kv_v_bits,
-            group_size=args.kv_group_size,
-            quantized_kv_start=args.quantized_kv_start,
-        )
-    elif args.kv_bits:
-        cache = make_prompt_cache(model)
-        # 立即量化
+    # make_prompt_cache 自动适配模型架构：
+    # - Qwen3.5 → model.make_cache() → ArraysCache(size=2) / KVCache
+    # - 传统模型 → 标准 KVCache
+    cache = make_prompt_cache(model)
+
+    # 对支持标准 KVCache 的层开启量化（ArraysCache 层自动跳过）
+    if args.kv_bits:
+        quantized = 0
         for i, c in enumerate(cache):
-            if i >= args.quantized_kv_start and hasattr(c, "to_quantized"):
+            if hasattr(c, "to_quantized"):
                 cache[i] = c.to_quantized(
                     group_size=args.kv_group_size, bits=args.kv_bits
                 )
-    else:
-        cache = make_prompt_cache(model)
+                quantized += 1
+        logger.info(
+            f"Quantized {quantized}/{len(cache)} cache layers to q{args.kv_bits}"
+        )
 
     # 前向传播
     from mlx_lm.generate import generate_step
@@ -199,7 +149,7 @@ def generate_sync(prompt_tokens: list, args, cached_prompt: list):
         prompt_cache=cache,
         prefill_step_size=args.prefill_step_size,
     ):
-        token_id = token.item()
+        token_id = token.item() if hasattr(token, "item") else token
         if token_id in tokenizer.eos_token_ids:
             break
         generated_tokens.append(token_id)
@@ -284,15 +234,13 @@ def main():
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=9004)
 
-    # KV cache 量化
-    parser.add_argument("--kv-bits", type=int, default=None,
-                        help="KV cache 统一量化 bit 数 (K=V)")
-    parser.add_argument("--kv-k-bits", type=int, default=8,
-                        help="K cache 量化 bit 数 (默认 8)")
-    parser.add_argument("--kv-v-bits", type=int, default=4,
-                        help="V cache 量化 bit 数 (默认 4)")
-    parser.add_argument("--kv-group-size", type=int, default=64)
-    parser.add_argument("--quantized-kv-start", type=int, default=0)
+    # KV cache 量化（仅对支持标准 KVCache 的层生效）
+    parser.add_argument(
+        "--kv-bits", type=int, default=8,
+        help="KV cache 量化 bit 数（默认 8，仅标准 KVCache 层生效）"
+    )
+    parser.add_argument("--kv-group-size", type=int, default=64,
+                        help="量化组大小（默认 64）")
 
     # 推理参数
     parser.add_argument("--temperature", type=float, default=0.0)
@@ -301,12 +249,6 @@ def main():
     parser.add_argument("--prefill-step-size", type=int, default=2048)
 
     args = parser.parse_args()
-
-    # 如果只设了 --kv-bits，则 K=V；否则用独立的 k/v bits
-    if args.kv_bits is not None:
-        args.kv_k_bits = args.kv_bits
-        args.kv_v_bits = args.kv_bits
-
     app.state.args = args
 
     import uvicorn

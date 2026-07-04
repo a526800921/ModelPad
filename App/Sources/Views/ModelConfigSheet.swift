@@ -6,6 +6,13 @@ struct ModelConfigSheet: View {
     @EnvironmentObject var viewModel: AppViewModel
     @Environment(\.dismiss) private var dismiss
 
+    // 焦点管理（macOS 上 TextField 在 ScrollView 中光标不显示的 workaround）
+    private enum FocusedField: Hashable {
+        case name, scriptPath, pythonExe, scriptWorkDir, port, workDir
+    }
+
+    @FocusState private var focusedField: FocusedField?
+
     // 本地编辑副本
     @State private var name: String = ""
     @State private var engine: Engine = .custom
@@ -44,6 +51,7 @@ struct ModelConfigSheet: View {
                         fieldRow(label: "名称") {
                             TextField("模型名称", text: $name)
                                 .textFieldStyle(.roundedBorder)
+                                .focused($focusedField, equals: .name)
                         }
                         fieldRow(label: "引擎") {
                             Picker("", selection: $engine) {
@@ -82,10 +90,12 @@ struct ModelConfigSheet: View {
                             fieldRow(label: "脚本路径") {
                                 TextField("/path/to/script.py", text: $scriptPath)
                                     .textFieldStyle(.roundedBorder)
+                                    .focused($focusedField, equals: .scriptPath)
                             }
                             fieldRow(label: "Python 可执行文件") {
                                 TextField("python3", text: $pythonExe)
                                     .textFieldStyle(.roundedBorder)
+                                    .focused($focusedField, equals: .pythonExe)
                             }
                             fieldRow(label: "脚本参数（每行一个）") {
                                 TextEditor(text: $scriptArgs)
@@ -99,6 +109,7 @@ struct ModelConfigSheet: View {
                             fieldRow(label: "脚本工作目录") {
                                 TextField("可选，留空使用模型工作目录", text: $scriptWorkDir)
                                     .textFieldStyle(.roundedBorder)
+                                    .focused($focusedField, equals: .scriptWorkDir)
                             }
                             fieldRow(label: "脚本环境变量（KEY=VALUE，每行一个）") {
                                 TextEditor(text: $scriptEnvText)
@@ -117,11 +128,13 @@ struct ModelConfigSheet: View {
                         fieldRow(label: "端口（TCP 健康检查）") {
                             TextField("可选", text: $portText)
                                 .textFieldStyle(.roundedBorder)
+                                .focused($focusedField, equals: .port)
                                 .frame(width: 100)
                         }
                         fieldRow(label: "工作目录") {
                             TextField("可选", text: $workDir)
                                 .textFieldStyle(.roundedBorder)
+                                .focused($focusedField, equals: .workDir)
                         }
                         fieldRow(label: "环境变量（KEY=VALUE，每行一个）") {
                             TextEditor(text: $envText)
@@ -136,6 +149,7 @@ struct ModelConfigSheet: View {
                 }
                 .padding()
             }
+            .focusable(false)
         }
         .frame(width: 520, height: 560)
         .onAppear { populateFromModel() }
