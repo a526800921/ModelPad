@@ -22,7 +22,7 @@
 | [ModelPad 外部工作流兼容](plans/modelpad-workflow-compat.md) | 已完成 | 阶段 1：`pdf` 模型与 `mineru-pdf-workflow` 生命周期兼容已由外部项目闭环 | modelpad-v1 | [阶段 1 完成证据](plans/modelpad-workflow-compat.md#阶段-1-完成证据) |
 | [ModelPad PDF 模型优化方案](plans/modelpad-pdf-model-optimization.md) | 已完成 | 阶段 1：配置层稳定性优化 | modelpad-v1, modelpad-workflow-compat | [阶段 1 完成证据](plans/modelpad-pdf-model-optimization.md#阶段-1-完成证据) |
 | [ModelPad 菜单栏常驻和启动配置增强](plans/modelpad-menu-bar-agent.md) | 已完成 | 三个阶段全部闭环 | modelpad-v1 | [阶段 1 证据](plans/modelpad-menu-bar-agent.md#阶段-1-完成证据) / [阶段 2 证据](plans/modelpad-menu-bar-agent.md#阶段-2-完成证据) / [阶段 3 证据](plans/modelpad-menu-bar-agent.md#阶段-3-完成证据) |
-| [ModelPad 启动接口环境变量覆盖](plans/modelpad-api-start-env-overrides.md) | 待实施 | 阶段 1：启动接口一次性环境变量覆盖 | modelpad-v1, modelpad-menu-bar-agent | [Step 0 证据](plans/modelpad-api-start-env-overrides.md#step-0-证据) |
+| [ModelPad 启动接口环境变量覆盖](plans/modelpad-api-start-env-overrides.md) | 已完成 | 阶段 1：启动接口一次性环境变量覆盖 | modelpad-v1, modelpad-menu-bar-agent | [阶段 1 完成证据](plans/modelpad-api-start-env-overrides.md#阶段-1-完成证据) |
 
 允许状态：`候选`、`设计中`、`待实施`、`实施中`、`已完成`、`已替代`、`已合并`、`已废弃`。
 
@@ -33,7 +33,7 @@
 3. `modelpad-workflow-compat` ✅（阶段 1 已由 `mineru-pdf-workflow` 外部项目闭环）
 4. `modelpad-pdf-model-optimization` ✅（阶段 1 已完成）
 5. `modelpad-menu-bar-agent` ✅（三个阶段全部已完成）
-6. `modelpad-api-start-env-overrides`（待实施：启动接口一次性环境变量覆盖）
+6. `modelpad-api-start-env-overrides` ✅（阶段 1：启动接口一次性环境变量覆盖）
 
 ## 依赖关系
 
@@ -75,6 +75,7 @@
 | modelpad-logbuffer-performance | 阶段 1：环形缓冲替换 | `LogBuffer` 从 `Array.removeFirst` O(n) 改为预分配定长数组 + `writeIndex` O(1) 环形缓冲；新增 3 个边界测试（单槽、覆写顺序、clear 重置）；110 测试全通过。详见 [阶段 1 完成证据](plans/modelpad-logbuffer-performance.md#阶段-1-完成证据)。 |
 | modelpad-workflow-compat | 阶段 1：`pdf` 模型与 `mineru-pdf-workflow` 生命周期兼容 | 用户确认外部项目已完成；`mineru-pdf-workflow` 的 `modelpad-pdf-service-lifecycle` 计划已闭环，`pdf-seg`/`pdf-auto`/`pdf-rerun` 只复用 ModelPad PDF 服务，不再启动、重启、停止或清理共享运行目录。详见 [阶段 1 完成证据](plans/modelpad-workflow-compat.md#阶段-1-完成证据)。 |
 | modelpad-pdf-model-optimization | 阶段 1：配置层稳定性优化 | `pdf.env` 已写入 MinerU 服务端环境变量；真实 `pdf` 服务启动后 `/health` 返回 `processing_window_size=8`、`task_retention_seconds=21600`、`max_concurrent_requests=1`；`/docs` 返回 404；停止后 9000 端口释放。该配置更新存在一次未获明确授权的非文档变更偏差，已在专项计划记录，用户已确认保留；用户已完成最小 PDF workflow 手动验收，确认解析可跑通、`9000` 不被误杀、输出目录产生任务输出。详见 [阶段 1 完成证据](plans/modelpad-pdf-model-optimization.md#阶段-1-完成证据)。 |
+| modelpad-api-start-env-overrides | 阶段 1：启动接口一次性环境变量覆盖 | `StartModelRequest` DTO + `envOverrides` 参数 + API body 解析 + 11 个新契约测试；120 测试全通过（commit `83eeb9c`）。详见 [阶段 1 完成证据](plans/modelpad-api-start-env-overrides.md#阶段-1-完成证据)。 |
 
 ## 阶段 5 输入
 

@@ -100,7 +100,7 @@ Content-Type: application/json
 
 | 阶段 | 目标 | 进入条件 | 验证方向 | 状态 |
 |---|---|---|---|---|
-| 阶段 1 | 启动接口一次性环境变量覆盖 | 需求确认本计划契约 | API 契约测试和进程环境注入测试通过；配置文件未被请求体 env 改写 | 待实施 |
+| 阶段 1 | 启动接口一次性环境变量覆盖 | 需求确认本计划契约 | API 契约测试和进程环境注入测试通过；配置文件未被请求体 env 改写 | 已完成 |
 
 ## 实施方向
 
@@ -137,6 +137,41 @@ Content-Type: application/json
 | 外部调用方误以为请求体 `env` 会保存 | 下次启动缺少变量 | 文档和测试明确“一次性覆盖” | 删除请求体 `env` 使用，改回 UI 持久化配置 |
 | 请求体 env 覆盖关键系统变量 | 启动失败或行为漂移 | 保持仅本机 API；失败写入启动错误和日志 | 不传覆盖变量，恢复持久化配置启动 |
 | POST body 无大小限制被放大 | 本机误调用导致内存峰值 | 后续可单独增加 API body 大小上限 | 临时限制调用方请求体大小 |
+
+## 阶段 1 完成证据
+
+阶段 1 已于 2026-07-04 完成。
+
+实施范围：
+
+- `Sources/ModelPadCore/API/APIDTOs.swift`：新增 `StartModelRequest` DTO（含可选 `env: [String: String]?` 和 `validate()`）。
+- `Sources/ModelPadCore/Process/ModelProcessManager.swift`：`start()` 新增 `envOverrides` 参数，合并优先级为 进程环境 → config 持久化 env → 请求体 env。
+- `Sources/ModelPadCore/API/APIServer.swift`：`handleStart` 解析可选 JSON 请求体，非法请求体返回 `invalid_request`（400）且不启动模型。
+- `Tests/ModelPadCoreTests/APITests/APIContractTests.swift`：新增 11 个契约测试。
+
+测试结果（2026-07-04）：
+
+```text
+swift test → 120 tests passed (7 suites)
+```
+
+新增测试覆盖：
+
+| 测试 | 结果 |
+|---|---|
+| 无请求体启动（向后兼容） | ✅ |
+| 空 JSON 对象启动 | ✅ |
+| 空 env 对象启动 | ✅ |
+| env 覆盖持久化 config 同名变量 | ✅ |
+| 请求体 env 不持久化到 config.json | ✅ |
+| 非法 JSON → 400 invalid_request 且不启动 | ✅ |
+| env 非对象 → 400 | ✅ |
+| env 含空 key → 400 | ✅ |
+| env 值非字符串 → 400 | ✅ |
+| 模型列表和单模型摘要不泄露 env | ✅ |
+| 原有所有 API 契约测试回归 | ✅ |
+
+Git commit: `83eeb9c`
 
 ## 未决问题
 
