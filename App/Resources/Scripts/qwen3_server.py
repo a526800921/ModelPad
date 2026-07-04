@@ -111,10 +111,16 @@ async def ensure_model(args):
 # ---------- 推理 ----------
 def generate_sync(prompt_tokens: list, args, cached_prompt: list):
     """同步生成 token 序列，返回完整结果。"""
-    from mlx_lm.sample_utils import make_sampler
+    from mlx_lm.sample_utils import make_sampler, make_logits_processors
 
     prompt = mx.array(prompt_tokens)
     sampler = make_sampler(temp=args.temperature, top_p=args.top_p)
+
+    # logits processors（repetition_penalty 等）
+    logits_processors = make_logits_processors(
+        repetition_penalty=args.repetition_penalty,
+        repetition_context_size=args.repetition_context_size,
+    )
 
     # make_prompt_cache 自动适配模型架构：
     # - Qwen3.5 → model.make_cache() → ArraysCache(size=2) / KVCache
@@ -148,6 +154,7 @@ def generate_sync(prompt_tokens: list, args, cached_prompt: list):
         sampler=sampler,
         prompt_cache=cache,
         prefill_step_size=args.prefill_step_size,
+        logits_processors=logits_processors,
     ):
         token_id = token.item() if hasattr(token, "item") else token
         if token_id in tokenizer.eos_token_ids:
@@ -247,6 +254,12 @@ def main():
     parser.add_argument("--top-p", type=float, default=1.0)
     parser.add_argument("--max-tokens", type=int, default=4096)
     parser.add_argument("--prefill-step-size", type=int, default=2048)
+
+    # 惩罚参数（通过 logits_processors 生效）
+    parser.add_argument("--repetition-penalty", type=float, default=1.05,
+                        help="重复惩罚系数（默认 1.05，1.0 为不惩罚）")
+    parser.add_argument("--repetition-context-size", type=int, default=20,
+                        help="重复惩罚窗口大小（默认 20）")
 
     args = parser.parse_args()
     app.state.args = args

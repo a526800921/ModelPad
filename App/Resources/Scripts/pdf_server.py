@@ -54,6 +54,17 @@ async def idle_unload_loop(app, timeout: int):
                 logger.warning(f"VLM unload failed: {e}")
 
 
+def str2bool(v):
+    """安全的布尔值解析：'False' / '0' / 'no' 解析为 False。"""
+    if isinstance(v, bool):
+        return v
+    if v.lower() in ("yes", "true", "1"):
+        return True
+    if v.lower() in ("no", "false", "0"):
+        return False
+    raise argparse.ArgumentTypeError(f"Boolean value expected, got {v}")
+
+
 def main():
     import argparse
 
@@ -62,7 +73,7 @@ def main():
     parser.add_argument("--port", type=int, default=9000)
     parser.add_argument("--idle-timeout", type=int, default=IDLE_TIMEOUT,
                         help="VLM 空闲超时秒数，默认 300 (5 分钟)")
-    parser.add_argument("--enable-vlm-preload", type=bool, default=False)
+    parser.add_argument("--enable-vlm-preload", type=str2bool, default=False)
     args, unknown = parser.parse_known_args()
 
     # 把已知参数注入环境变量，其余透传给 mineru
