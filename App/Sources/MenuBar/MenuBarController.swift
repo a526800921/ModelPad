@@ -35,7 +35,7 @@ public final class MenuBarController: NSObject {
 
         guard let button = statusItem?.button else { return }
 
-        let image = Self.makeMenuBarIcon(size: 18)
+        let image = Self.makeMenuBarIcon(size: 20)
         button.image = image
         button.imagePosition = .imageOnly
         // 固定 frame 防止被邻近长状态栏 app 挤掉
@@ -120,13 +120,24 @@ public final class MenuBarController: NSObject {
         let image = NSImage(size: NSSize(width: size, height: size))
         image.lockFocus()
 
+        let iconRect = NSRect(x: 1.5, y: 1.5, width: size - 3, height: size - 3)
+        let radius = size * 0.22
+        let background = NSBezierPath(roundedRect: iconRect, xRadius: radius, yRadius: radius)
+
+        NSColor.systemBlue.setFill()
+        background.fill()
+
+        NSColor.white.withAlphaComponent(0.72).setStroke()
+        background.lineWidth = 1
+        background.stroke()
+
         let paragraph = NSMutableParagraphStyle()
         paragraph.alignment = .center
 
-        let font = NSFont.systemFont(ofSize: size * 0.72, weight: .semibold)
+        let font = NSFont.systemFont(ofSize: size * 0.52, weight: .semibold)
         let attributes: [NSAttributedString.Key: Any] = [
             .font: font,
-            .foregroundColor: NSColor.black,
+            .foregroundColor: NSColor.white,
             .paragraphStyle: paragraph
         ]
 
@@ -134,14 +145,14 @@ public final class MenuBarController: NSObject {
         let textSize = text.size(withAttributes: attributes)
         let rect = NSRect(
             x: 0,
-            y: (size - textSize.height) / 2 - size * 0.03,
+            y: (size - textSize.height) / 2 - size * 0.01,
             width: size,
             height: textSize.height
         )
         text.draw(in: rect, withAttributes: attributes)
 
         image.unlockFocus()
-        image.isTemplate = true
+        image.isTemplate = false
         image.accessibilityDescription = "ModelPad"
         return image
     }
