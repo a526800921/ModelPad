@@ -173,6 +173,20 @@ swift test → 120 tests passed (7 suites)
 
 Git commit: `83eeb9c`
 
+## 测试覆盖率
+
+验收复核（2026-07-04）：
+
+```text
+swift test → 120 tests passed (7 suites)
+```
+
+覆盖范围：
+
+- API 契约测试覆盖启动接口无请求体、空 JSON、空 env、env 覆盖、不持久化、非法请求体和查询不泄露 env。
+- 进程层既有测试覆盖模型配置 env 注入；本阶段新增 API 测试覆盖请求体 env 覆盖持久化 env 的优先级。
+- 回归测试覆盖配置编解码、配置存储、进程生命周期、日志缓冲、TCP 健康检查和 App ViewModel 装配。
+
 ## 未决问题
 
 | 问题 | 推荐方案 | 是否阻塞当前阶段 | 状态 |
