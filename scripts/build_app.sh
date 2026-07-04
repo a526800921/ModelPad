@@ -88,6 +88,13 @@ if [ -d "$SCRIPTS_SRC" ]; then
     echo "  ✓ Python 脚本: $(ls "$SCRIPTS_SRC"/*.py 2>/dev/null | xargs -n1 basename | tr '\n' ' ')"
 fi
 
+# Step 6c: 复制 README（用于 GET / 根路径响应）
+README_SRC="$PROJECT_ROOT/README.md"
+if [ -f "$README_SRC" ]; then
+    cp "$README_SRC" "$APP_BUNDLE/Contents/Resources/"
+    echo "  ✓ README: README.md"
+fi
+
 # Step 7: 写入 PkgInfo
 echo -n "APPL????" > "$APP_BUNDLE/Contents/PkgInfo"
 echo "  ✓ PkgInfo"

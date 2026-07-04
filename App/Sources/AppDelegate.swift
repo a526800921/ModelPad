@@ -15,6 +15,11 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObjec
         let store = ConfigStore.shared
         let pm = ModelProcessManager()
         let readmePath: String? = {
+            // 优先：Bundle 内嵌的 README（打包 .app 可用）
+            if let path = Bundle.main.path(forResource: "README", ofType: "md") {
+                return path
+            }
+            // 回退：开发模式下当前目录
             let path = FileManager.default.currentDirectoryPath + "/README.md"
             return FileManager.default.fileExists(atPath: path) ? path : nil
         }()
