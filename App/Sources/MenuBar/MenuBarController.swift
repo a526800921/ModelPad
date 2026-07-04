@@ -35,11 +35,7 @@ public final class MenuBarController: NSObject {
 
         guard let button = statusItem?.button else { return }
 
-        let image = NSImage(
-            systemSymbolName: "cpu",
-            accessibilityDescription: "ModelPad"
-        )
-        image?.isTemplate = true
+        let image = Self.makeMenuBarIcon(size: 18)
         button.image = image
         button.imagePosition = .imageOnly
         // 固定 frame 防止被邻近长状态栏 app 挤掉
@@ -118,7 +114,37 @@ public final class MenuBarController: NSObject {
         }
     }
 
-    // MARK: - 状态点绘制
+    // MARK: - 图标绘制
+
+    private static func makeMenuBarIcon(size: CGFloat) -> NSImage {
+        let image = NSImage(size: NSSize(width: size, height: size))
+        image.lockFocus()
+
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.alignment = .center
+
+        let font = NSFont.systemFont(ofSize: size * 0.72, weight: .semibold)
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .foregroundColor: NSColor.black,
+            .paragraphStyle: paragraph
+        ]
+
+        let text = "模" as NSString
+        let textSize = text.size(withAttributes: attributes)
+        let rect = NSRect(
+            x: 0,
+            y: (size - textSize.height) / 2 - size * 0.03,
+            width: size,
+            height: textSize.height
+        )
+        text.draw(in: rect, withAttributes: attributes)
+
+        image.unlockFocus()
+        image.isTemplate = true
+        image.accessibilityDescription = "ModelPad"
+        return image
+    }
 
     /// 创建实心圆 `NSImage`，对齐主面板的 ModelRow 颜色。
     private static func makeDot(color: NSColor, size: CGFloat) -> NSImage {
