@@ -71,6 +71,10 @@ def build_args(args) -> list[str]:
         cmd += ["-ub", str(args.ubatch_size)]
     if args.threads > 0:
         cmd += ["-t", str(args.threads)]
+    if args.cache_type_k:
+        cmd += ["-ctk", args.cache_type_k]
+    if args.cache_type_v:
+        cmd += ["-ctv", args.cache_type_v]
     return cmd
 
 
@@ -99,6 +103,12 @@ def main():
                         help="CPU 线程数（0 = 自动）")
     parser.add_argument("--batch-size", "-b", type=int, default=0)
     parser.add_argument("--ubatch-size", "-ub", type=int, default=0)
+
+    # KV cache 量化
+    parser.add_argument("--cache-type-k", "-ctk", default=None,
+                        choices=["f32", "f16", "bf16", "q8_0", "q4_0", "q4_1", "iq4_nl", "q5_0", "q5_1"])
+    parser.add_argument("--cache-type-v", "-ctv", default=None,
+                        choices=["f32", "f16", "bf16", "q8_0", "q4_0", "q4_1", "iq4_nl", "q5_0", "q5_1"])
 
     # 投机解码
     parser.add_argument("--spec-type", default=None,

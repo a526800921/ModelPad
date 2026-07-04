@@ -90,7 +90,7 @@ POST /api/config/reload
 - 刷新按钮放在左侧模型列表底部，“添加”按钮右侧。
 - 使用 `arrow.clockwise` 系统图标，`.help("重新读取配置")`。
 - 按钮只触发配置重载，不保存未保存编辑内容。
-- 如果当前存在未保存编辑内容，应优先复用现有 `selectModel` 的保存策略：刷新前保存当前编辑模型，避免用户在 UI 中正在编辑的配置被静默丢弃。
+- 说明：模型编辑已改为弹窗流程，刷新按钮不再承担保存内联编辑的职责；若内存中仍存在未保存编辑态，刷新以磁盘 `config.json` 为准，未保存内存态会被覆盖。
 - 刷新成功后：
   - 当前选中模型仍存在时保持选中，并同步 `editingModel` 到新配置。
   - 当前选中模型已不存在时，选中新列表第一个模型；列表为空则清空选中和编辑态。
@@ -109,7 +109,7 @@ POST /api/config/reload
 
 ## Step 0 证据
 
-- `AppViewModel.reloadModels()` 当前可作为 UI 刷新基础，但选择状态和未保存编辑处理需要补强。
+- `AppViewModel.reloadModels()` 当前可作为 UI 刷新基础，但选择状态、弹窗编辑模式下的内存态覆盖语义需要补强和固定。
 - `ModelListView` 底部按钮区域当前只包含添加按钮、Spacer 和删除按钮。
 - `APIServer` 当前没有 `/api/config/reload` 路由，也没有面向 UI 的“配置已重载”回调。
 - `APIServer.handleListModels()` 已能从 `ConfigStore.load()` 获取最新配置，可复用模型摘要组装逻辑。
@@ -123,7 +123,7 @@ POST /api/config/reload
 
 ## 实施方向
 
-1. 调整 `AppViewModel.reloadModels()`，使其在重新读取配置时处理未保存编辑、选中项保留、选中项缺失和状态刷新。
+1. 调整 `AppViewModel.reloadModels()`，使其在重新读取配置时处理选中项保留、选中项缺失、状态刷新，并固定“刷新以磁盘配置为准”的弹窗编辑语义。
 2. 在 `ModelListView` 的底部按钮区，将刷新按钮放在添加按钮旁边，触发 `viewModel.reloadModels()`。
 3. 为 `APIServer` 增加配置重载回调，例如 `onConfigReloadRequested`，由 App 层绑定到 `AppViewModel.reloadModels()`。
 4. 在 API 层新增 `POST /api/config/reload` 路由；成功时返回刷新后的模型摘要列表，失败时返回 `config_reload_failed`。
@@ -156,7 +156,7 @@ POST /api/config/reload
 | 风险 | 影响 | 缓解 | 回滚 |
 |---|---|---|---|
 | 手动编辑配置时 JSON 损坏 | 刷新失败 | 失败时保留旧缓存，返回 `config_reload_failed` | 修复 `config.json` 后再次刷新 |
-| 刷新覆盖 UI 未保存编辑 | 用户编辑内容丢失 | 刷新前沿用当前保存策略，或实现前确认更严格交互 | 暂时移除刷新按钮，仅保留 API |
+| 刷新覆盖未保存内存态 | 用户若绕过弹窗保存流程直接刷新，内存态会回到磁盘配置 | 文档和测试固定：编辑已改为弹窗，刷新以 `config.json` 为准，不保存未保存内存态 | 重新打开配置弹窗并保存，或从磁盘配置恢复 |
 | 删除运行中模型后刷新 | 列表不再显示但进程仍运行 | 文档固定“不自动停止”；后续可增加运行孤儿提示 | 通过旧配置恢复模型 ID 后再停止，或退出 App 清理托管进程 |
 
 ## 未决问题
@@ -174,7 +174,7 @@ POST /api/config/reload
 
 | 文件 | 变更类型 | 说明 |
 |---|---|---|
-| `App/Sources/AppViewModel.swift` | 增强 | `reloadModels()` 增加保存→验证→重载→选区恢复完整流程 |
+| `App/Sources/AppViewModel.swift` | 增强 | `reloadModels()` 增加验证→重载→选区恢复流程；编辑已改为弹窗，刷新不保存未保存内存态 |
 | `App/Sources/Views/ModelListView.swift` | 新增 UI | "添加"按钮旁增加 `arrow.clockwise` 刷新按钮 |
 | `App/Sources/AppDelegate.swift` | 连线 | 绑定 `onConfigReloadRequested` → `reloadModels()` |
 | `Sources/ModelPadCore/API/APIServer.swift` | 新增 API | `onConfigReloadRequested` 回调 + `POST /api/config/reload` 路由 + `buildModelSummaries` 复用 |
@@ -189,14 +189,14 @@ swift test → 145 tests in 9 suites passed, 0 failures
 
 覆盖：
 - ✅ ViewModel reloadModels 从磁盘读取新模型
-- ✅ reloadModels 刷新前自动保存未保存编辑
+- ✅ reloadModels 从磁盘重载，未保存内存编辑按弹窗编辑模型处理，不在刷新时保存
 - ✅ 选中模型仍存在时保持选中 + editingModel 同步
 - ✅ 选中模型已删除时 fallback 到第一个
 - ✅ 列表为空时清空选中和编辑态
 - ✅ 刷新不启动任何模型
 - ✅ 刷新不停止运行中模型
 - ✅ 配置损坏时保留旧列表和选中项
-- ✅ 存在未保存编辑时先保存再刷新
+- ✅ 存在未保存内存编辑时刷新以磁盘配置为准，覆盖内存态
 - ✅ hasUnsavedChanges 刷新后置 false
 - ✅ 从配置删除的模型刷新后不在列表显示
 - ✅ POST /api/config/reload 200 + 模型列表
