@@ -184,6 +184,8 @@ curl --noproxy '*' http://127.0.0.1:9786/api/models
 curl --noproxy '*' -X POST http://127.0.0.1:9786/api/models/<model-id>/start
 ```
 
+响应：
+
 ```json
 {
   "ok": true,
@@ -191,6 +193,16 @@ curl --noproxy '*' -X POST http://127.0.0.1:9786/api/models/<model-id>/start
   "pid": 92833
 }
 ```
+
+启动时支持可选 JSON 请求体，传入一次性环境变量覆盖（不持久化到 config.json）：
+
+```bash
+curl --noproxy '*' -X POST http://127.0.0.1:9786/api/models/<model-id>/start \
+  -H "Content-Type: application/json" \
+  -d '{"env": {"MINERU_API_OUTPUT_ROOT": "/tmp/custom-output"}}'
+```
+
+合并规则：进程环境 → config.json 持久化 env → 请求体 env（最终胜出）。请求体 env 仅对本次启动生效；已经 running/starting 的模型重复调用 start 不会因传入新 env 而重启。
 
 停止模型：
 
@@ -240,6 +252,7 @@ curl --noproxy '*' http://127.0.0.1:9786/api/models/<model-id>/logs
 
 | code | 说明 |
 |---|---|
+| `invalid_request` | 请求体格式非法 |
 | `not_found` | 路由不存在 |
 | `model_not_found` | 模型不存在 |
 | `start_failed` | 启动失败 |
@@ -291,3 +304,4 @@ docs/PLAN_MAP.md
 - `docs/plans/modelpad-logbuffer-performance.md`
 - `docs/plans/modelpad-workflow-compat.md`
 - `docs/plans/modelpad-pdf-model-optimization.md`
+- `docs/plans/modelpad-api-start-env-overrides.md`
