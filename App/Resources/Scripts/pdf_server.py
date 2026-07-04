@@ -11,6 +11,7 @@ import os
 import sys
 import time
 import asyncio
+import argparse
 import logging
 from pathlib import Path
 
@@ -66,7 +67,6 @@ def str2bool(v):
 
 
 def main():
-    import argparse
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--host", default="127.0.0.1")
