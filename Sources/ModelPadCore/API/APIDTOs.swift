@@ -118,4 +118,5 @@ public struct StartModelRequest: Codable, Sendable {
 public enum APIResponse: Sendable {
     case success(SuccessResponse)
     case error(ErrorResponse)
+    case text(String)
 }

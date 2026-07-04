@@ -13,6 +13,7 @@ public final class APIServer: @unchecked Sendable {
     private let port: Int
     private let processManager: ModelProcessManager
     private let configStore: ConfigStore
+    private let rootResponse: APIResponse
 
     /// API 启停操作后回调，用于通知 UI 刷新状态。
     public var onModelStateChanged: (@Sendable () -> Void)?
@@ -27,12 +28,23 @@ public final class APIServer: @unchecked Sendable {
         host: String = "127.0.0.1",
         port: Int = 9786,
         processManager: ModelProcessManager,
-        configStore: ConfigStore
+        configStore: ConfigStore,
+        readmePath: String? = nil
     ) {
         self.host = host
         self.port = port
         self.processManager = processManager
         self.configStore = configStore
+        self.rootResponse = Self.loadRootResponse(readmePath: readmePath)
+    }
+
+    /// 加载 GET / 响应内容：README 文件或降级文案。
+    private static func loadRootResponse(readmePath: String?) -> APIResponse {
+        if let path = readmePath,
+           let content = try? String(contentsOfFile: path, encoding: .utf8) {
+            return .text(content)
+        }
+        return .text("ModelPad API Server is running.\n")
     }
 
     // MARK: - 生命周期
@@ -43,12 +55,13 @@ public final class APIServer: @unchecked Sendable {
 
         let store: ConfigStore = configStore
         let pm: ModelProcessManager = processManager
+        let rootResp = rootResponse
         let stateChanged = self.onModelStateChanged
         let configReloaded = self.onConfigReloadRequested
 
         let bootstrap = ServerBootstrap(group: group)
             .childChannelInitializer { channel in
-                let handler = APIHandler(processManager: pm, configStore: store)
+                let handler = APIHandler(processManager: pm, configStore: store, rootResponse: rootResp)
                 handler.onModelStateChanged = stateChanged
                 handler.onConfigReloadRequested = configReloaded
                 return channel.pipeline.configureHTTPServerPipeline().flatMap {
@@ -79,6 +92,7 @@ private final class APIHandler: ChannelInboundHandler {
 
     private let processManager: ModelProcessManager
     private let configStore: ConfigStore
+    private let rootResponse: APIResponse
 
     var onModelStateChanged: (@Sendable () -> Void)?
     var onConfigReloadRequested: (@Sendable () -> Void)?
@@ -87,9 +101,10 @@ private final class APIHandler: ChannelInboundHandler {
     private var path: String = ""
     private var bodyBuffer: ByteBuffer?
 
-    init(processManager: ModelProcessManager, configStore: ConfigStore) {
+    init(processManager: ModelProcessManager, configStore: ConfigStore, rootResponse: APIResponse) {
         self.processManager = processManager
         self.configStore = configStore
+        self.rootResponse = rootResponse
     }
 
     func channelRead(context: ChannelHandlerContext, data: NIOAny) {
@@ -128,6 +143,11 @@ private final class APIHandler: ChannelInboundHandler {
     }
 
     private func route(method: HTTPMethod, path: String) -> APIResponse {
+        // GET /
+        if method == .GET, path == "/" {
+            return rootResponse
+        }
+
         let components = path.split(separator: "/", omittingEmptySubsequences: true)
         let count = components.count
         let prefix = count >= 2 && components[0] == "api"
@@ -335,6 +355,7 @@ private final class APIHandler: ChannelInboundHandler {
     private func send(response: APIResponse, context: ChannelHandlerContext) {
         let status: HTTPResponseStatus
         let body: Data
+        let contentType: String
 
         let encoder = JSONEncoder()
         encoder.outputFormatting = .prettyPrinted
@@ -344,9 +365,15 @@ private final class APIHandler: ChannelInboundHandler {
         case .success(let resp):
             status = .ok
             body = (try? encoder.encode(resp)) ?? Data()
+            contentType = "application/json"
         case .error(let resp):
             status = resp.error.code == "model_not_found" ? .notFound : .badRequest
             body = (try? encoder.encode(resp)) ?? Data()
+            contentType = "application/json"
+        case .text(let text):
+            status = .ok
+            body = Data(text.utf8)
+            contentType = "text/plain; charset=utf-8"
         }
 
         var buffer = context.channel.allocator.buffer(capacity: body.count)
@@ -356,7 +383,7 @@ private final class APIHandler: ChannelInboundHandler {
             version: .http1_1,
             status: status,
             headers: HTTPHeaders([
-                ("Content-Type", "application/json"),
+                ("Content-Type", contentType),
                 ("Content-Length", "\(body.count)")
             ])
         )

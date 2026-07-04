@@ -14,7 +14,11 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObjec
     public override init() {
         let store = ConfigStore.shared
         let pm = ModelProcessManager()
-        let api = APIServer(processManager: pm, configStore: store)
+        let readmePath: String? = {
+            let path = FileManager.default.currentDirectoryPath + "/README.md"
+            return FileManager.default.fileExists(atPath: path) ? path : nil
+        }()
+        let api = APIServer(processManager: pm, configStore: store, readmePath: readmePath)
         self.viewModel = AppViewModel(configStore: store, processManager: pm, apiServer: api)
         super.init()
     }
