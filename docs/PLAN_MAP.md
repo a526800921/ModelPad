@@ -22,6 +22,7 @@
 | [ModelPad 外部工作流兼容](plans/modelpad-workflow-compat.md) | 已完成 | 阶段 1：`pdf` 模型与 `mineru-pdf-workflow` 生命周期兼容已由外部项目闭环 | modelpad-v1 | [阶段 1 完成证据](plans/modelpad-workflow-compat.md#阶段-1-完成证据) |
 | [ModelPad PDF 模型优化方案](plans/modelpad-pdf-model-optimization.md) | 已完成 | 阶段 1：配置层稳定性优化 | modelpad-v1, modelpad-workflow-compat | [阶段 1 完成证据](plans/modelpad-pdf-model-optimization.md#阶段-1-完成证据) |
 | [ModelPad 菜单栏常驻和启动配置增强](plans/modelpad-menu-bar-agent.md) | 已完成 | 三个阶段全部闭环 | modelpad-v1 | [阶段 1 证据](plans/modelpad-menu-bar-agent.md#阶段-1-完成证据) / [阶段 2 证据](plans/modelpad-menu-bar-agent.md#阶段-2-完成证据) / [阶段 3 证据](plans/modelpad-menu-bar-agent.md#阶段-3-完成证据) |
+| [ModelPad 启动接口环境变量覆盖](plans/modelpad-api-start-env-overrides.md) | 待实施 | 阶段 1：启动接口一次性环境变量覆盖 | modelpad-v1, modelpad-menu-bar-agent | [Step 0 证据](plans/modelpad-api-start-env-overrides.md#step-0-证据) |
 
 允许状态：`候选`、`设计中`、`待实施`、`实施中`、`已完成`、`已替代`、`已合并`、`已废弃`。
 
@@ -32,6 +33,7 @@
 3. `modelpad-workflow-compat` ✅（阶段 1 已由 `mineru-pdf-workflow` 外部项目闭环）
 4. `modelpad-pdf-model-optimization` ✅（阶段 1 已完成）
 5. `modelpad-menu-bar-agent` ✅（三个阶段全部已完成）
+6. `modelpad-api-start-env-overrides`（待实施：启动接口一次性环境变量覆盖）
 
 ## 依赖关系
 
@@ -42,6 +44,7 @@
 | modelpad-workflow-compat | modelpad-v1 | 依赖 `.app` 启动入口、模型托管、健康检查和退出清理能力已完成 |
 | modelpad-pdf-model-optimization | modelpad-v1, modelpad-workflow-compat | 依赖 ModelPad 模型托管能力；验证需避免与外部 workflow 生命周期冲突混淆 |
 | modelpad-menu-bar-agent | modelpad-v1 | 依赖 `.app` 启动入口、菜单栏图标、退出流程和打包流程已完成 |
+| modelpad-api-start-env-overrides | modelpad-v1, modelpad-menu-bar-agent | 依赖 v1 本地 HTTP API、模型托管、环境变量注入能力，以及后续 Python 脚本环境变量合并能力已完成 |
 
 ## 替代、合并和废弃
 
@@ -83,7 +86,9 @@
 
 ## 后续候选输入
 
-当前无未吸收的后续候选输入。
+| 日期 | 类型 | 摘要 | 吸收计划 |
+|---|---|---|---|
+| 2026-07-04 | 新需求 | 启动服务接口增加环境变量配置能力，默认作为本次启动的一次性 env 覆盖，不持久化、不通过查询接口泄露。 | [ModelPad 启动接口环境变量覆盖](plans/modelpad-api-start-env-overrides.md) |
 
 历史候选输入已归档：2026-07-02 至 2026-07-03 期间记录的 `.app` 启动入口、日志 tag 移除、LogBuffer 性能优化、外部 workflow 兼容、菜单栏常驻、Python 脚本启动配置、配置弹窗、MLX 引擎和 API 启停 UI 同步等输入，均已被 `modelpad-v1`、`modelpad-logbuffer-performance`、`modelpad-workflow-compat`、`modelpad-menu-bar-agent` 或 `modelpad-pdf-model-optimization` 吸收并完成。
 

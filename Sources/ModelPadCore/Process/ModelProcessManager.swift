@@ -37,9 +37,10 @@ public final class ModelProcessManager: @unchecked Sendable {
     /// 启动模型。同一模型只允许一个托管进程。
     /// - Parameters:
     ///   - config: 模型配置（command、workDir、env、port 等）。
+    ///   - envOverrides: 本次启动一次性环境变量覆盖，优先级高于 config 持久化 env。不持久化。
     ///   - healthCheckTimeout: TCP 健康检查超时秒数，默认 30。
     /// - Returns: 当前状态（可能为 already running）。
-    public func start(config: ModelConfig, healthCheckTimeout: TimeInterval = 30) throws -> ModelStatus {
+    public func start(config: ModelConfig, envOverrides: [String: String]? = nil, healthCheckTimeout: TimeInterval = 30) throws -> ModelStatus {
         let modelId = config.id
 
         // 检查是否已存在运行/启动中的进程
@@ -84,6 +85,12 @@ public final class ModelProcessManager: @unchecked Sendable {
         var fullEnv = ProcessInfo.processInfo.environment
         for (key, value) in config.effectiveEnv() {
             fullEnv[key] = value
+        }
+        // 请求体一次性覆盖：优先级高于持久化 config
+        if let overrides = envOverrides {
+            for (key, value) in overrides {
+                fullEnv[key] = value
+            }
         }
         process.environment = fullEnv
 

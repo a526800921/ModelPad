@@ -91,6 +91,28 @@ public struct ErrorResponse: Codable, Sendable {
     }
 }
 
+// MARK: - 启动请求
+
+/// POST /api/models/:id/start 可选请求体。
+/// 携带的环境变量仅对本次启动生效，不持久化到 config.json。
+public struct StartModelRequest: Codable, Sendable {
+    /// 本次启动追加或覆盖的环境变量。省略时保持持久化配置中的 env。
+    public let env: [String: String]?
+
+    public init(env: [String: String]? = nil) {
+        self.env = env
+    }
+
+    /// 校验请求体结构合法性。返回 nil 表示合法，否则返回错误描述。
+    public func validate() -> String? {
+        guard let env else { return nil }
+        for (key, _) in env where key.isEmpty {
+            return "env key must not be empty"
+        }
+        return nil
+    }
+}
+
 // MARK: - API 统一响应类型
 
 public enum APIResponse: Sendable {

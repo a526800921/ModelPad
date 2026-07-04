@@ -213,9 +213,28 @@ private final class APIHandler: ChannelInboundHandler {
               let config = findModel(id: uuid) else {
             return .error(ErrorResponse(code: "model_not_found", message: "Model not found"))
         }
+
+        // 解析可选请求体中的一次性环境变量覆盖
+        var envOverrides: [String: String]? = nil
+        if let bodyBuffer {
+            let data = bodyBuffer.getData(at: bodyBuffer.readerIndex, length: bodyBuffer.readableBytes) ?? Data()
+            if !data.isEmpty {
+                let request: StartModelRequest
+                do {
+                    request = try JSONDecoder().decode(StartModelRequest.self, from: data)
+                } catch {
+                    return .error(ErrorResponse(code: "invalid_request", message: "Request body is not valid JSON"))
+                }
+                if let error = request.validate() {
+                    return .error(ErrorResponse(code: "invalid_request", message: error))
+                }
+                envOverrides = request.env
+            }
+        }
+
         defer { onModelStateChanged?() }
         do {
-            let status = try processManager.start(config: config)
+            let status = try processManager.start(config: config, envOverrides: envOverrides)
             let pid = processManager.pid(for: uuid)
             return .success(.started(status: status.rawValue, pid: pid ?? 0))
         } catch {

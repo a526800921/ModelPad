@@ -409,4 +409,252 @@ func errorResponseFormat() async throws {
     #expect(error?["message"] is String)
 }
 
+// MARK: - 启动请求体环境变量覆盖
+
+@Test("POST start 无请求体仍可启动（向后兼容）")
+func startWithoutBodyStillWorks() async throws {
+    let (server, store, pm, port) = try makeTestServer()
+    let model = try saveTestModel(named: "NoBody", command: "sleep 10", to: store)
+    try server.start()
+    defer {
+        _ = pm.stop(modelId: model.id)
+        try? server.stop()
+    }
+
+    let (status, json) = try await apiRequest(
+        method: "POST",
+        path: "/api/models/\(model.id.uuidString)/start",
+        port: port,
+        body: nil
+    )
+    #expect(status == 200)
+    #expect(json["ok"] as? Bool == true)
+    #expect(json["status"] as? String == "running")
+}
+
+@Test("POST start 空 JSON 对象保持当前启动行为")
+func startWithEmptyJSONBody() async throws {
+    let (server, store, pm, port) = try makeTestServer()
+    let model = try saveTestModel(named: "EmptyJSON", command: "sleep 10", to: store)
+    try server.start()
+    defer {
+        _ = pm.stop(modelId: model.id)
+        try? server.stop()
+    }
+
+    let body = "{}".data(using: .utf8)!
+    let (status, json) = try await apiRequest(
+        method: "POST",
+        path: "/api/models/\(model.id.uuidString)/start",
+        port: port,
+        body: body
+    )
+    #expect(status == 200)
+    #expect(json["ok"] as? Bool == true)
+}
+
+@Test("POST start env 覆盖持久化 config 中的同名变量")
+func startEnvOverrideWinsOverConfigEnv() async throws {
+    let (server, store, pm, port) = try makeTestServer()
+    let model = ModelConfig(
+        name: "EnvOverride",
+        engine: .custom,
+        command: "echo $TEST_VAR",
+        env: ["TEST_VAR": "from-config"]
+    )
+    var appConfig = try store.load()
+    appConfig.models.append(model)
+    try store.save(appConfig)
+    try server.start()
+    defer {
+        _ = pm.stop(modelId: model.id)
+        try? server.stop()
+    }
+
+    let body = try JSONSerialization.data(withJSONObject: ["env": ["TEST_VAR": "from-request"]])
+    let (status, json) = try await apiRequest(
+        method: "POST",
+        path: "/api/models/\(model.id.uuidString)/start",
+        port: port,
+        body: body
+    )
+    #expect(status == 200)
+    #expect(json["ok"] as? Bool == true)
+
+    // 等待进程输出
+    try await Task.sleep(nanoseconds: 300_000_000)
+    let logs = pm.logs(for: model.id)
+    #expect(logs.contains(where: { $0.message == "from-request" }),
+            "应使用请求体覆盖的环境变量")
+    #expect(!logs.contains(where: { $0.message == "from-config" }),
+            "不应使用 config 中的原有环境变量")
+}
+
+@Test("POST start 请求体 env 未持久化到 config.json")
+func startEnvOverrideNotPersisted() async throws {
+    let (server, store, pm, port) = try makeTestServer()
+    let model = try saveTestModel(named: "NoPersist", command: "sleep 10", to: store)
+    try server.start()
+    defer {
+        _ = pm.stop(modelId: model.id)
+        try? server.stop()
+    }
+
+    let body = try JSONSerialization.data(withJSONObject: ["env": ["TEMP_KEY": "temp-value"]])
+    let (status, _) = try await apiRequest(
+        method: "POST",
+        path: "/api/models/\(model.id.uuidString)/start",
+        port: port,
+        body: body
+    )
+    #expect(status == 200)
+
+    // 重新读取 config.json
+    let reloaded = try store.load()
+    let reloadedModel = reloaded.models.first(where: { $0.id == model.id })
+    #expect(reloadedModel != nil)
+    #expect(reloadedModel!.env["TEMP_KEY"] == nil,
+            "请求体 env 不应被持久化到 config.json")
+    #expect(reloadedModel!.env.isEmpty || reloadedModel!.env == [:],
+            "config.json 中的 env 应保持原状")
+}
+
+@Test("POST start 非法 JSON 返回 invalid_request 且不启动")
+func startInvalidJSONReturns400() async throws {
+    let (server, store, pm, port) = try makeTestServer()
+    let model = try saveTestModel(named: "BadJSON", command: "sleep 60", to: store)
+    try server.start()
+    defer {
+        _ = pm.stop(modelId: model.id)
+        try? server.stop()
+    }
+
+    let body = "not-json".data(using: .utf8)!
+    let (status, json) = try await apiRequest(
+        method: "POST",
+        path: "/api/models/\(model.id.uuidString)/start",
+        port: port,
+        body: body
+    )
+    #expect(status == 400)
+    #expect(json["ok"] as? Bool == false)
+    #expect((json["error"] as? [String: Any])?["code"] as? String == "invalid_request")
+
+    // 模型不应被启动
+    #expect(pm.status(for: model.id) == .stopped)
+}
+
+@Test("POST start env 为非对象时返回 invalid_request")
+func startEnvNotObjectReturns400() async throws {
+    let (server, store, pm, port) = try makeTestServer()
+    let model = try saveTestModel(named: "BadEnv", command: "sleep 60", to: store)
+    try server.start()
+    defer {
+        _ = pm.stop(modelId: model.id)
+        try? server.stop()
+    }
+
+    let body = try JSONSerialization.data(withJSONObject: ["env": "not-an-object"])
+    let (status, json) = try await apiRequest(
+        method: "POST",
+        path: "/api/models/\(model.id.uuidString)/start",
+        port: port,
+        body: body
+    )
+    #expect(status == 400)
+    #expect((json["error"] as? [String: Any])?["code"] as? String == "invalid_request")
+
+    #expect(pm.status(for: model.id) == .stopped)
+}
+
+@Test("POST start env 包含空 key 返回 invalid_request")
+func startEnvEmptyKeyReturns400() async throws {
+    let (server, store, pm, port) = try makeTestServer()
+    let model = try saveTestModel(named: "EmptyKey", command: "sleep 60", to: store)
+    try server.start()
+    defer {
+        _ = pm.stop(modelId: model.id)
+        try? server.stop()
+    }
+
+    let body = try JSONSerialization.data(withJSONObject: ["env": ["": "value"]])
+    let (status, json) = try await apiRequest(
+        method: "POST",
+        path: "/api/models/\(model.id.uuidString)/start",
+        port: port,
+        body: body
+    )
+    #expect(status == 400)
+    #expect((json["error"] as? [String: Any])?["code"] as? String == "invalid_request")
+
+    #expect(pm.status(for: model.id) == .stopped)
+}
+
+@Test("POST start env 值非字符串返回 invalid_request")
+func startEnvNonStringValueReturns400() async throws {
+    let (server, store, pm, port) = try makeTestServer()
+    let model = try saveTestModel(named: "NonStrVal", command: "sleep 60", to: store)
+    try server.start()
+    defer {
+        _ = pm.stop(modelId: model.id)
+        try? server.stop()
+    }
+
+    let body = try JSONSerialization.data(withJSONObject: ["env": ["KEY": 123]])
+    let (status, json) = try await apiRequest(
+        method: "POST",
+        path: "/api/models/\(model.id.uuidString)/start",
+        port: port,
+        body: body
+    )
+    #expect(status == 400)
+    #expect((json["error"] as? [String: Any])?["code"] as? String == "invalid_request")
+
+    #expect(pm.status(for: model.id) == .stopped)
+}
+
+@Test("GET /api/models 和 GET /api/models/:id 仍不返回 env")
+func startEnvDoesNotLeakInSummary() async throws {
+    let (server, store, _, port) = try makeTestServer()
+    let model = try saveTestModel(named: "NoLeak", command: "echo hi", to: store)
+    try server.start()
+    defer { try? server.stop() }
+
+    // 列表不泄露
+    let (_, listJson) = try await apiRequest(method: "GET", path: "/api/models", port: port)
+    let models = listJson["models"] as? [[String: Any]]
+    #expect(models?.first?["env"] == nil)
+
+    // 单模型不泄露
+    let (_, getJson) = try await apiRequest(
+        method: "GET",
+        path: "/api/models/\(model.id.uuidString)",
+        port: port
+    )
+    let m = getJson["model"] as? [String: Any]
+    #expect(m?["env"] == nil)
+}
+
+@Test("POST start 空 env 对象保持当前行为")
+func startEmptyEnvObject() async throws {
+    let (server, store, pm, port) = try makeTestServer()
+    let model = try saveTestModel(named: "EmptyEnv", command: "sleep 10", to: store)
+    try server.start()
+    defer {
+        _ = pm.stop(modelId: model.id)
+        try? server.stop()
+    }
+
+    let body = try JSONSerialization.data(withJSONObject: ["env": [String: String]()])
+    let (status, json) = try await apiRequest(
+        method: "POST",
+        path: "/api/models/\(model.id.uuidString)/start",
+        port: port,
+        body: body
+    )
+    #expect(status == 200)
+    #expect(json["ok"] as? Bool == true)
+    #expect(json["status"] as? String == "running")
+}
+
 } // APIContractTests
