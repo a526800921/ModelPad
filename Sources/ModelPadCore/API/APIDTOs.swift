@@ -8,6 +8,7 @@ public struct ModelSummary: Codable, Sendable {
     public let id: UUID
     public let name: String
     public let engine: Engine
+    public let desc: String?
     public let port: Int?
     public let status: ModelStatus
     public let pid: Int32?
@@ -19,6 +20,7 @@ public struct ModelSummary: Codable, Sendable {
         self.id = config.id
         self.name = config.name
         self.engine = config.engine
+        self.desc = config.desc
         self.port = config.port
         self.status = status
         self.pid = pid

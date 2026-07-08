@@ -5,6 +5,8 @@ public struct ModelConfig: Codable, Identifiable, Sendable {
     public var id: UUID
     public var name: String
     public var engine: Engine
+    /// 模型用途描述，展示在侧边栏列表。
+    public var desc: String?
     /// 启动命令字符串（launchMode == .command 时使用）。
     public var command: String
     public var workDir: String?
@@ -20,7 +22,7 @@ public struct ModelConfig: Codable, Identifiable, Sendable {
     // MARK: - CodingKeys
 
     enum CodingKeys: String, CodingKey {
-        case id, name, engine, command, workDir, env, port
+        case id, name, engine, desc, command, workDir, env, port
         case createdAt, updatedAt
         case launchMode, pythonScript
     }
@@ -31,6 +33,7 @@ public struct ModelConfig: Codable, Identifiable, Sendable {
         id: UUID = UUID(),
         name: String,
         engine: Engine,
+        desc: String? = nil,
         command: String,
         workDir: String? = nil,
         env: [String: String] = [:],
@@ -43,6 +46,7 @@ public struct ModelConfig: Codable, Identifiable, Sendable {
         self.id = id
         self.name = name
         self.engine = engine
+        self.desc = desc
         self.command = command
         self.workDir = workDir
         self.env = env
@@ -58,6 +62,8 @@ public struct ModelConfig: Codable, Identifiable, Sendable {
         id = try container.decode(UUID.self, forKey: .id)
         name = try container.decode(String.self, forKey: .name)
         engine = try container.decode(Engine.self, forKey: .engine)
+        // 向后兼容：旧配置缺少 desc 时默认 nil
+        desc = try container.decodeIfPresent(String.self, forKey: .desc)
         command = try container.decode(String.self, forKey: .command)
         workDir = try container.decodeIfPresent(String.self, forKey: .workDir)
         env = try container.decodeIfPresent([String: String].self, forKey: .env) ?? [:]
@@ -74,6 +80,7 @@ public struct ModelConfig: Codable, Identifiable, Sendable {
         try container.encode(id, forKey: .id)
         try container.encode(name, forKey: .name)
         try container.encode(engine, forKey: .engine)
+        try container.encodeIfPresent(desc, forKey: .desc)
         try container.encode(command, forKey: .command)
         try container.encodeIfPresent(workDir, forKey: .workDir)
         if !env.isEmpty { try container.encode(env, forKey: .env) }

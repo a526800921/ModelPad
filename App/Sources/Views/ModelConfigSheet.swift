@@ -15,6 +15,7 @@ struct ModelConfigSheet: View {
 
     // 本地编辑副本
     @State private var name: String = ""
+    @State private var desc: String = ""
     @State private var engine: Engine = .custom
     @State private var launchMode: LaunchMode = .command
     @State private var command: String = ""
@@ -52,6 +53,10 @@ struct ModelConfigSheet: View {
                             TextField("模型名称", text: $name)
                                 .textFieldStyle(.roundedBorder)
                                 .focused($focusedField, equals: .name)
+                        }
+                        fieldRow(label: "描述") {
+                            TextField("可选，展示在侧边栏", text: $desc)
+                                .textFieldStyle(.roundedBorder)
                         }
                         fieldRow(label: "引擎") {
                             Picker("", selection: $engine) {
@@ -168,6 +173,7 @@ struct ModelConfigSheet: View {
     private func populateFromModel() {
         guard let model = viewModel.editingModel else { return }
         name = model.name
+        desc = model.desc ?? ""
         engine = model.engine
         launchMode = model.launchMode
         command = model.command
@@ -202,6 +208,7 @@ struct ModelConfigSheet: View {
         guard var model = viewModel.editingModel else { return nil }
 
         model.name = name
+        model.desc = desc.isEmpty ? nil : desc
         model.engine = engine
         model.launchMode = launchMode
         model.command = command

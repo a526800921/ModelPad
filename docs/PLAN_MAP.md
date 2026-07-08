@@ -25,6 +25,7 @@
 | [ModelPad 启动接口环境变量覆盖](plans/modelpad-api-start-env-overrides.md) | 已完成 | 阶段 1：启动接口一次性环境变量覆盖 | modelpad-v1, modelpad-menu-bar-agent | [阶段 1 完成证据](plans/modelpad-api-start-env-overrides.md#阶段-1-完成证据) |
 | [ModelPad 菜单栏服务列表](plans/modelpad-menu-service-list.md) | 已完成 | 阶段 1：菜单栏下拉菜单展示服务列表和状态点 | modelpad-v1, modelpad-menu-bar-agent | [阶段 1 完成证据](plans/modelpad-menu-service-list.md#阶段-1-完成证据) |
 | [ModelPad 配置刷新](plans/modelpad-config-refresh.md) | 已完成 | 阶段 1：面板刷新按钮和本地刷新接口 | modelpad-v1, modelpad-menu-bar-agent | [阶段 1 完成证据](plans/modelpad-config-refresh.md#阶段-1-完成证据) |
+| [ModelPad 模型描述字段](plans/modelpad-model-desc-field.md) | 已完成 | 阶段 1：数据模型、UI 和 API 新增 desc 字段 | modelpad-v1 | [阶段 1 完成证据](plans/modelpad-model-desc-field.md#阶段-1-完成证据) |
 
 允许状态：`候选`、`设计中`、`待实施`、`实施中`、`已完成`、`已替代`、`已合并`、`已废弃`。
 
@@ -38,6 +39,7 @@
 6. `modelpad-api-start-env-overrides` ✅（阶段 1：启动接口一次性环境变量覆盖）
 7. `modelpad-menu-service-list` ✅（阶段 1：菜单栏下拉菜单展示服务列表和状态点）
 8. `modelpad-config-refresh` ✅（阶段 1：面板刷新按钮和本地刷新接口）
+9. `modelpad-model-desc-field` ✅（阶段 1：数据模型、UI 和 API 新增 desc 字段）
 
 ## 依赖关系
 
@@ -51,6 +53,7 @@
 | modelpad-api-start-env-overrides | modelpad-v1, modelpad-menu-bar-agent | 依赖 v1 本地 HTTP API、模型托管、环境变量注入能力，以及后续 Python 脚本环境变量合并能力已完成 |
 | modelpad-menu-service-list | modelpad-v1, modelpad-menu-bar-agent | 依赖已完成的菜单栏下拉菜单、模型配置列表和状态同步基础 |
 | modelpad-config-refresh | modelpad-v1, modelpad-menu-bar-agent | 依赖已完成的配置持久化、左侧模型列表、AppViewModel 模型缓存和本地 HTTP API |
+| modelpad-model-desc-field | modelpad-v1 | 依赖 v1 已完成的 ModelConfig 数据模型、ModelConfigSheet 配置弹窗和 ModelListView 侧边栏列表 |
 
 ## 替代、合并和废弃
 
@@ -83,6 +86,7 @@
 | modelpad-pdf-model-optimization | 阶段 1：配置层稳定性优化 | `pdf.env` 已写入 MinerU 服务端环境变量；真实 `pdf` 服务启动后 `/health` 返回 `processing_window_size=8`、`task_retention_seconds=21600`、`max_concurrent_requests=1`；`/docs` 返回 404；停止后 9000 端口释放。该配置更新存在一次未获明确授权的非文档变更偏差，已在专项计划记录，用户已确认保留；用户已完成最小 PDF workflow 手动验收，确认解析可跑通、`9000` 不被误杀、输出目录产生任务输出。详见 [阶段 1 完成证据](plans/modelpad-pdf-model-optimization.md#阶段-1-完成证据)。 |
 | modelpad-api-start-env-overrides | 阶段 1：启动接口一次性环境变量覆盖 | `StartModelRequest` DTO + `envOverrides` 参数 + API body 解析 + 11 个新契约测试；120 测试全通过（commit `83eeb9c`）。详见 [阶段 1 完成证据](plans/modelpad-api-start-env-overrides.md#阶段-1-完成证据)。 |
 | modelpad-menu-service-list | 阶段 1：菜单栏下拉菜单展示服务列表和状态点 | `MenuBarController` 注入 `AppViewModel`，`menuWillOpen` 触发轻量刷新后读取 models/statusMessages 重建菜单；4 种状态颜色圆点（绿/黄/红/灰）+ 只读服务项 + 分隔线 + 面板/退出；6 个新菜单构建测试 + 全部 126 测试通过。详见 [阶段 1 完成证据](plans/modelpad-menu-service-list.md#阶段-1-完成证据)。 |
+| modelpad-model-desc-field | 阶段 1：数据模型、UI 和 API 新增 desc 字段 | `ModelConfig` 新增 `desc: String?` 字段（`decodeIfPresent` 向后兼容）；`ModelSummary` API 透传 `desc`；`ModelRow` 引擎类型行替换为 `desc`（空时 `-`）；`ModelConfigSheet` 新增描述输入框；构建通过 + 145 测试全通过（2026-07-08）。详见 [阶段 1 完成证据](plans/modelpad-model-desc-field.md#阶段-1-完成证据)。 |
 
 ## 阶段 5 输入
 

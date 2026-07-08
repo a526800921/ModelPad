@@ -109,9 +109,10 @@ struct ModelRow: View {
                 Text(model.name)
                     .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
                     .lineLimit(1)
-                Text(engineDisplayName(model.engine))
+                Text(model.desc?.isEmpty == false ? model.desc! : "-")
                     .font(.system(size: 10))
                     .foregroundColor(.secondary)
+                    .lineLimit(1)
             }
             Spacer()
             if let port = model.port {
@@ -139,13 +140,4 @@ struct ModelRow: View {
         }
     }
 
-    private func engineDisplayName(_ engine: Engine) -> String {
-        switch engine {
-        case .ollama: return "Ollama"
-        case .llamacpp: return "llama.cpp"
-        case .vllm: return "vLLM"
-        case .custom: return "自定义"
-        case .mlx: return "MLX"
-        }
-    }
 }
