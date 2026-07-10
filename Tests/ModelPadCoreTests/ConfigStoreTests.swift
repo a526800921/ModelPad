@@ -20,12 +20,12 @@ func defaultConfigVersion() {
     #expect(config.version == 1)
 }
 
-@Test("默认配置 API 启用且监听 127.0.0.1:9786")
+@Test("默认配置 API 启用且监听 127.0.0.1:9999")
 func defaultConfigApi() {
     let config = AppConfig.default
     #expect(config.api.enabled == true)
     #expect(config.api.host == "127.0.0.1")
-    #expect(config.api.port == 9786)
+    #expect(config.api.port == 9999)
 }
 
 @Test("默认配置模型列表为空")
@@ -53,7 +53,7 @@ func appConfigRoundtrip() throws {
 
     let config = AppConfig(
         version: 1,
-        api: ApiConfig(enabled: true, host: "127.0.0.1", port: 9786),
+        api: ApiConfig(enabled: true, host: "127.0.0.1", port: 9999),
         models: [model]
     )
 
@@ -88,7 +88,7 @@ func saveAndLoadEmptyConfig() throws {
     let loaded = try store.load()
     #expect(loaded.version == config.version)
     #expect(loaded.models.isEmpty)
-    #expect(loaded.api.port == 9786)
+    #expect(loaded.api.port == 9999)
 }
 
 @Test("保存含模型配置后能正确读取")

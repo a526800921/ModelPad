@@ -156,7 +156,7 @@ enum LogStream: String, Codable {
   "api": {
     "enabled": true,
     "host": "127.0.0.1",
-    "port": 9786
+    "port": 9999
   },
   "models": [
     {
@@ -181,7 +181,7 @@ JSON 读失败时保留损坏文件备份，例如 `config.json.bak`，然后启
 默认监听：
 
 ```text
-127.0.0.1:9786
+127.0.0.1:9999
 ```
 
 ### 对外接口
@@ -678,7 +678,7 @@ swift test                           # 阶段 1-3 回归（83/83 通过）
 | 验收项 | 验证方法 | 证据 | 状态 |
 |--------|---------|------|------|
 | App 启动后加载配置 | `ls ~/Library/Application Support/ModelPad/config.json` | 文件存在（123 bytes） | ✅ |
-| App 启动后启动 API Server | `curl http://127.0.0.1:9786/api/health` | `{"ok":true}` | ✅ |
+| App 启动后启动 API Server | `curl http://127.0.0.1:9999/api/health` | `{"ok":true}` | ✅ |
 | 窗口关闭只隐藏，不退出 | 点击红色关闭按钮→App Dock 仍运行 | `windowShouldClose` 返回 false | ✅ |
 | 菜单栏左键点击显示窗口 | 点击菜单栏 cpu 图标→窗口显示 | `NSStatusItem.button.action` = showMainWindow | ✅ |
 | 删除运行中模型先停止并要求确认 | UI 删除按钮→弹窗确认 | `.alert` with destructive button | ✅ |

@@ -137,7 +137,7 @@ func encodedJSONMatchesContract() throws {
     let api = json?["api"] as? [String: Any]
     #expect(api?["enabled"] as? Bool == true)
     #expect(api?["host"] as? String == "127.0.0.1")
-    #expect(api?["port"] as? Int == 9786)
+    #expect(api?["port"] as? Int == 9999)
 
     // 验证模型配置
     let models = json?["models"] as? [[String: Any]]

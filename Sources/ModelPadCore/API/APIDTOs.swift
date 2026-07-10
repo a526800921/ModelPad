@@ -121,4 +121,6 @@ public enum APIResponse: Sendable {
     case success(SuccessResponse)
     case error(ErrorResponse)
     case text(String)
+    /// 原始 JSON 数据（Content-Type: application/json）。
+    case json(Data)
 }

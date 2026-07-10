@@ -6,7 +6,7 @@ struct ModelPadApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var delegate
 
     var body: some Scene {
-        WindowGroup("ModelPad — http://127.0.0.1:9786") {
+        WindowGroup("ModelPad — http://127.0.0.1:9999") {
             MainWindow()
                 .environmentObject(delegate.viewModel)
                 .frame(minWidth: 800, minHeight: 520)

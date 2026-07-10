@@ -9,7 +9,7 @@ public struct ApiConfig: Codable, Sendable {
     public static let `default` = ApiConfig(
         enabled: true,
         host: "127.0.0.1",
-        port: 9786
+        port: 9999
     )
 
     public init(enabled: Bool, host: String, port: Int) {

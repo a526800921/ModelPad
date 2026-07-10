@@ -26,7 +26,7 @@ public final class APIServer: @unchecked Sendable {
 
     public init(
         host: String = "127.0.0.1",
-        port: Int = 9786,
+        port: Int = 9999,
         processManager: ModelProcessManager,
         configStore: ConfigStore,
         readmePath: String? = nil
@@ -101,6 +101,260 @@ private final class APIHandler: ChannelInboundHandler {
     private var path: String = ""
     private var bodyBuffer: ByteBuffer?
 
+    /// 缓存的 OpenAPI 规范 JSON。
+    private static let openapiSpec: Data = {
+        let paths: [String: [String: Any]] = [
+            "/api/health": [
+                "get": specOperation(
+                    summary: "健康检查",
+                    description: "返回服务是否正常运行。",
+                    response: ["ok": .bool]
+                )
+            ],
+            "/api/models": [
+                "get": specOperation(
+                    summary: "模型列表",
+                    description: "返回所有已配置模型的摘要信息（不含敏感字段）。",
+                    response: [
+                        "ok": .bool,
+                        "models": .array(.ref("#/components/schemas/ModelSummary"))
+                    ]
+                )
+            ],
+            "/api/models/{id}": [
+                "get": specOperation(
+                    summary: "模型详情",
+                    description: "查询单个模型的状态和配置摘要。",
+                    parameters: [
+                        ["name": "id", "in": "path", "required": true, "schema": ["type": "string"]]
+                    ],
+                    response: [
+                        "ok": .bool,
+                        "model": .ref("#/components/schemas/ModelSummary")
+                    ]
+                )
+            ],
+            "/api/models/{id}/start": [
+                "post": specOperation(
+                    summary: "启动模型",
+                    description: "启动指定模型。可选请求体携带一次性环境变量覆盖。",
+                    parameters: [
+                        ["name": "id", "in": "path", "required": true, "schema": ["type": "string"]]
+                    ],
+                    requestBody: [
+                        "content": [
+                            "application/json": [
+                                "schema": [
+                                    "type": "object",
+                                    "properties": [
+                                        "env": [
+                                            "type": "object",
+                                            "additionalProperties": ["type": "string"],
+                                            "description": "本次启动追加/覆盖的环境变量"
+                                        ]
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ],
+                    response: [
+                        "ok": .bool,
+                        "status": .string,
+                        "pid": .int
+                    ]
+                )
+            ],
+            "/api/models/{id}/stop": [
+                "post": specOperation(
+                    summary: "停止模型",
+                    description: "停止指定模型的进程。",
+                    parameters: [
+                        ["name": "id", "in": "path", "required": true, "schema": ["type": "string"]]
+                    ],
+                    response: ["ok": .bool]
+                )
+            ],
+            "/api/models/{id}/restart": [
+                "post": specOperation(
+                    summary: "重启模型",
+                    description: "重启指定模型进程。",
+                    parameters: [
+                        ["name": "id", "in": "path", "required": true, "schema": ["type": "string"]]
+                    ],
+                    response: [
+                        "ok": .bool,
+                        "status": .string,
+                        "pid": .int
+                    ]
+                )
+            ],
+            "/api/models/{id}/logs": [
+                "get": specOperation(
+                    summary: "模型日志",
+                    description: "获取指定模型的最新日志条目。",
+                    parameters: [
+                        ["name": "id", "in": "path", "required": true, "schema": ["type": "string"]]
+                    ],
+                    response: [
+                        "ok": .bool,
+                        "logs": .array(.ref("#/components/schemas/LogEntry"))
+                    ]
+                )
+            ],
+            "/api/models/{id}/logs/clear": [
+                "post": specOperation(
+                    summary: "清空日志",
+                    description: "清空指定模型的日志缓冲区。",
+                    parameters: [
+                        ["name": "id", "in": "path", "required": true, "schema": ["type": "string"]]
+                    ],
+                    response: ["ok": .bool]
+                )
+            ],
+            "/api/config/reload": [
+                "post": specOperation(
+                    summary: "重载配置",
+                    description: "从配置文件重新加载模型列表（不重启进程）。",
+                    response: [
+                        "ok": .bool,
+                        "models": .array(.ref("#/components/schemas/ModelSummary"))
+                    ]
+                )
+            ]
+        ]
+
+        let spec: [String: Any] = [
+            "openapi": "3.1.0",
+            "info": [
+                "title": "ModelPad API",
+                "version": "1.0.0",
+                "description": "ModelPad 本地 HTTP API — 管理本机模型服务进程的启停、状态查询和日志查看。"
+            ],
+            "servers": [
+                ["url": "http://127.0.0.1:9999", "description": "本地开发服务器"]
+            ],
+            "paths": paths,
+            "components": [
+                "schemas": [
+                    "ModelSummary": [
+                        "type": "object",
+                        "properties": [
+                            "id": ["type": "string", "format": "uuid", "description": "模型 UUID"],
+                            "name": ["type": "string", "description": "模型名称"],
+                            "engine": ["type": "string", "description": "引擎类型 (ollama / llamacpp / vllm / custom / mlx)"],
+                            "desc": ["type": "string", "nullable": true, "description": "模型用途描述"],
+                            "port": ["type": "integer", "nullable": true, "description": "监听端口"],
+                            "status": ["type": "string", "description": "运行状态 (running / stopped / error / starting)"],
+                            "pid": ["type": "integer", "nullable": true, "description": "进程 PID"],
+                            "baseUrl": ["type": "string", "nullable": true, "description": "服务地址"],
+                            "createdAt": ["type": "string", "format": "date-time"],
+                            "updatedAt": ["type": "string", "format": "date-time"]
+                        ]
+                    ] as [String: Any],
+                    "LogEntry": [
+                        "type": "object",
+                        "properties": [
+                            "stream": ["type": "string", "description": "stdout 或 stderr"],
+                            "message": ["type": "string", "description": "日志内容"],
+                            "timestamp": ["type": "string", "format": "date-time"]
+                        ]
+                    ] as [String: Any],
+                    "ErrorResponse": [
+                        "type": "object",
+                        "properties": [
+                            "ok": ["type": "boolean", "enum": [false]],
+                            "error": [
+                                "type": "object",
+                                "properties": [
+                                    "code": ["type": "string"],
+                                    "message": ["type": "string"]
+                                ]
+                            ]
+                        ]
+                    ] as [String: Any]
+                ]
+            ]
+        ]
+
+        let data = try? JSONSerialization.data(
+            withJSONObject: spec,
+            options: [.prettyPrinted, .sortedKeys]
+        )
+        return data ?? Data("{}".utf8)
+    }()
+
+    /// OpenAPI Response 字段类型助手。
+    private indirect enum SpecField {
+        case bool
+        case int
+        case string
+        case array(SpecField)
+        case ref(String)
+
+        var schemaDict: [String: Any] {
+            switch self {
+            case .bool:      return ["type": "boolean"]
+            case .int:       return ["type": "integer"]
+            case .string:    return ["type": "string"]
+            case .array(let item):
+                return ["type": "array", "items": item.schemaDict]
+            case .ref(let r):
+                return ["$ref": r]
+            }
+        }
+    }
+
+    /// 构造一个路径操作的字典。
+    private static func specOperation(
+        summary: String,
+        description: String,
+        parameters: [[String: Any]]? = nil,
+        requestBody: [String: Any]? = nil,
+        response: [String: SpecField]
+    ) -> [String: Any] {
+        var op: [String: Any] = [
+            "summary": summary,
+            "description": description,
+            "responses": [
+                "200": [
+                    "description": "成功",
+                    "content": [
+                        "application/json": [
+                            "schema": specResponseSchema(response)
+                        ]
+                    ]
+                ],
+                "404": [
+                    "description": "未找到",
+                    "content": [
+                        "application/json": [
+                            "schema": ["$ref": "#/components/schemas/ErrorResponse"]
+                        ]
+                    ]
+                ]
+            ]
+        ]
+        if let params = parameters, !params.isEmpty {
+            op["parameters"] = params
+        }
+        if let body = requestBody {
+            op["requestBody"] = body
+        }
+        return op
+    }
+
+    /// 将响应字段映射为 JSON Schema。
+    private static func specResponseSchema(_ fields: [String: SpecField]) -> [String: Any] {
+        var properties: [String: Any] = [:]
+        for (key, field) in fields {
+            properties[key] = field.schemaDict
+        }
+        return [
+            "type": "object",
+            "properties": properties
+        ]
+    }
+
     init(processManager: ModelProcessManager, configStore: ConfigStore, rootResponse: APIResponse) {
         self.processManager = processManager
         self.configStore = configStore
@@ -155,6 +409,11 @@ private final class APIHandler: ChannelInboundHandler {
         // GET /api/health
         if method == .GET, path == "/api/health" {
             return .success(SuccessResponse())
+        }
+
+        // GET /openapi.json
+        if method == .GET, path == "/openapi.json" {
+            return .json(Self.openapiSpec)
         }
 
         // GET /api/models
@@ -374,6 +633,10 @@ private final class APIHandler: ChannelInboundHandler {
             status = .ok
             body = Data(text.utf8)
             contentType = "text/plain; charset=utf-8"
+        case .json(let data):
+            status = .ok
+            body = data
+            contentType = "application/json"
         }
 
         var buffer = context.channel.allocator.buffer(capacity: body.count)

@@ -60,7 +60,7 @@ open dist/ModelPad.app
   "api": {
     "enabled": true,
     "host": "127.0.0.1",
-    "port": 9786
+    "port": 9999
   },
   "models": [
     {
@@ -94,7 +94,7 @@ open dist/ModelPad.app
 |---|---|
 | `api.enabled` | 是否启用本地 HTTP API |
 | `api.host` | API 监听地址，默认 `127.0.0.1` |
-| `api.port` | API 监听端口，默认 `9786` |
+| `api.port` | API 监听端口，默认 `9999` |
 | `engine` | 模型分类标签，可选 `ollama`、`llamacpp`、`vllm`、`custom`、`mlx` |
 | `launchMode` | 启动模式，`command` 或 `pythonScript` |
 | `command` | `launchMode=command` 时使用的完整启动命令 |
@@ -108,13 +108,13 @@ open dist/ModelPad.app
 默认监听：
 
 ```text
-http://127.0.0.1:9786
+http://127.0.0.1:9999
 ```
 
 如果本机 shell 设置了代理，调用本地 API 时建议绕过代理：
 
 ```bash
-curl --noproxy '*' http://127.0.0.1:9786/api/health
+curl --noproxy '*' http://127.0.0.1:9999/api/health
 ```
 
 ### 开放接口
@@ -122,6 +122,7 @@ curl --noproxy '*' http://127.0.0.1:9786/api/health
 | 方法 | 路径 | 说明 |
 |---|---|---|
 | `GET` | `/api/health` | API 健康检查 |
+| `GET` | `/openapi.json` | OpenAPI 3.1.0 规范（自描述接口文档） |
 | `GET` | `/api/models` | 获取全部模型运行摘要 |
 | `GET` | `/api/models/:id` | 获取单个模型运行摘要 |
 | `POST` | `/api/models/:id/start` | 启动模型 |
@@ -130,6 +131,34 @@ curl --noproxy '*' http://127.0.0.1:9786/api/health
 | `GET` | `/api/models/:id/logs` | 获取模型日志 |
 | `POST` | `/api/models/:id/logs/clear` | 清空模型日志 |
 | `POST` | `/api/config/reload` | 刷新配置，重新读取 config.json 并更新模型列表 |
+
+### OpenAPI 规范
+
+支持 OpenAPI 3.1.0 自描述规范，可导入 Postman、Swagger UI 等工具：
+
+```bash
+curl --noproxy '*' http://127.0.0.1:9999/openapi.json
+```
+
+关键路径概览：
+
+```json
+{
+  "openapi": "3.1.0",
+  "info": { "title": "ModelPad API", "version": "1.0.0" },
+  "paths": {
+    "/api/health": { "get": { "summary": "健康检查" } },
+    "/api/models": { "get": { "summary": "模型列表" } },
+    "/api/models/{id}": { "get": { "summary": "模型详情" } },
+    "/api/models/{id}/start":  { "post": { "summary": "启动模型" } },
+    "/api/models/{id}/stop":   { "post": { "summary": "停止模型" } },
+    "/api/models/{id}/restart":{ "post": { "summary": "重启模型" } },
+    "/api/models/{id}/logs":   { "get": { "summary": "模型日志" } },
+    "/api/models/{id}/logs/clear": { "post": { "summary": "清空日志" } },
+    "/api/config/reload":      { "post": { "summary": "重载配置" } }
+  }
+}
+```
 
 ### 不开放接口
 
@@ -146,7 +175,7 @@ curl --noproxy '*' http://127.0.0.1:9786/api/health
 健康检查：
 
 ```bash
-curl --noproxy '*' http://127.0.0.1:9786/api/health
+curl --noproxy '*' http://127.0.0.1:9999/api/health
 ```
 
 ```json
@@ -158,7 +187,7 @@ curl --noproxy '*' http://127.0.0.1:9786/api/health
 模型列表：
 
 ```bash
-curl --noproxy '*' http://127.0.0.1:9786/api/models
+curl --noproxy '*' http://127.0.0.1:9999/api/models
 ```
 
 ```json
@@ -183,7 +212,7 @@ curl --noproxy '*' http://127.0.0.1:9786/api/models
 启动模型：
 
 ```bash
-curl --noproxy '*' -X POST http://127.0.0.1:9786/api/models/<model-id>/start
+curl --noproxy '*' -X POST http://127.0.0.1:9999/api/models/<model-id>/start
 ```
 
 响应：
@@ -199,7 +228,7 @@ curl --noproxy '*' -X POST http://127.0.0.1:9786/api/models/<model-id>/start
 启动时支持可选 JSON 请求体，传入一次性环境变量覆盖（不持久化到 config.json）：
 
 ```bash
-curl --noproxy '*' -X POST http://127.0.0.1:9786/api/models/<model-id>/start \
+curl --noproxy '*' -X POST http://127.0.0.1:9999/api/models/<model-id>/start \
   -H "Content-Type: application/json" \
   -d '{"env": {"MINERU_API_OUTPUT_ROOT": "/tmp/custom-output"}}'
 ```
@@ -209,7 +238,7 @@ curl --noproxy '*' -X POST http://127.0.0.1:9786/api/models/<model-id>/start \
 停止模型：
 
 ```bash
-curl --noproxy '*' -X POST http://127.0.0.1:9786/api/models/<model-id>/stop
+curl --noproxy '*' -X POST http://127.0.0.1:9999/api/models/<model-id>/stop
 ```
 
 ```json
@@ -222,7 +251,7 @@ curl --noproxy '*' -X POST http://127.0.0.1:9786/api/models/<model-id>/stop
 获取日志：
 
 ```bash
-curl --noproxy '*' http://127.0.0.1:9786/api/models/<model-id>/logs
+curl --noproxy '*' http://127.0.0.1:9999/api/models/<model-id>/logs
 ```
 
 ```json
@@ -241,7 +270,7 @@ curl --noproxy '*' http://127.0.0.1:9786/api/models/<model-id>/logs
 刷新配置（手动编辑 `config.json` 后重新加载）：
 
 ```bash
-curl --noproxy '*' -X POST http://127.0.0.1:9786/api/config/reload
+curl --noproxy '*' -X POST http://127.0.0.1:9999/api/config/reload
 ```
 
 ```json
@@ -337,3 +366,5 @@ docs/PLAN_MAP.md
 - `docs/plans/modelpad-api-start-env-overrides.md`
 - `docs/plans/modelpad-menu-service-list.md`
 - `docs/plans/modelpad-config-refresh.md`
+- `docs/plans/modelpad-model-desc-field.md`
+- `docs/plans/modelpad-api-openapi-spec.md`

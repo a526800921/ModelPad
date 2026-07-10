@@ -347,9 +347,9 @@ struct PythonScriptConfig: Codable, Equatable, Sendable {
 
 真实运行验收放在阶段 3 末尾执行：
 
-- 构建或启动真实 `dist/ModelPad.app`，确认默认 `9786` 端口监听。
-- 使用 `curl http://127.0.0.1:9786/api/health` 验证真实 App 实例返回成功。
-- 使用 `curl http://127.0.0.1:9786/api/models` 验证真实 App 实例可读取当前配置模型列表。
+- 构建或启动真实 `dist/ModelPad.app`，确认默认 `9999` 端口监听。
+- 使用 `curl http://127.0.0.1:9999/api/health` 验证真实 App 实例返回成功。
+- 使用 `curl http://127.0.0.1:9999/api/models` 验证真实 App 实例可读取当前配置模型列表。
 - 对一个可安全启停的测试模型执行真实 API：
   - `POST /api/models/:id/start`
   - `POST /api/models/:id/stop`
@@ -388,7 +388,7 @@ struct PythonScriptConfig: Codable, Equatable, Sendable {
 
 - 阶段 3 验收运行 `swift test`，结果为 107 tests passed，0 failures。
 - 覆盖重点包括 `Engine.mlx` JSON 编解码、旧引擎配置兼容、API 契约、模型启停、日志、配置持久化和 App ViewModel 行为。
-- 真实运行验收已由用户确认闭环：真实 App 默认 `9786` 端口、允许接口、禁止配置写入接口、敏感字段不泄露、API 启停后的 UI 状态同步和退出清理均已完成验收。
+- 真实运行验收已由用户确认闭环：真实 App 默认 `9999` 端口、允许接口、禁止配置写入接口、敏感字段不泄露、API 启停后的 UI 状态同步和退出清理均已完成验收。
 
 ## 阶段 2 实施前确认项
 

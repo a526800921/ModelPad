@@ -26,6 +26,7 @@
 | [ModelPad 菜单栏服务列表](plans/modelpad-menu-service-list.md) | 已完成 | 阶段 1：菜单栏下拉菜单展示服务列表和状态点 | modelpad-v1, modelpad-menu-bar-agent | [阶段 1 完成证据](plans/modelpad-menu-service-list.md#阶段-1-完成证据) |
 | [ModelPad 配置刷新](plans/modelpad-config-refresh.md) | 已完成 | 阶段 1：面板刷新按钮和本地刷新接口 | modelpad-v1, modelpad-menu-bar-agent | [阶段 1 完成证据](plans/modelpad-config-refresh.md#阶段-1-完成证据) |
 | [ModelPad 模型描述字段](plans/modelpad-model-desc-field.md) | 已完成 | 阶段 1：数据模型、UI 和 API 新增 desc 字段 | modelpad-v1 | [阶段 1 完成证据](plans/modelpad-model-desc-field.md#阶段-1-完成证据) |
+| [ModelPad API OpenAPI 规范](plans/modelpad-api-openapi-spec.md) | 已完成 | 阶段 1：新增 GET /openapi.json 端点 | modelpad-v1 | [阶段 1 完成证据](plans/modelpad-api-openapi-spec.md#完成证据) |
 
 允许状态：`候选`、`设计中`、`待实施`、`实施中`、`已完成`、`已替代`、`已合并`、`已废弃`。
 
@@ -40,6 +41,7 @@
 7. `modelpad-menu-service-list` ✅（阶段 1：菜单栏下拉菜单展示服务列表和状态点）
 8. `modelpad-config-refresh` ✅（阶段 1：面板刷新按钮和本地刷新接口）
 9. `modelpad-model-desc-field` ✅（阶段 1：数据模型、UI 和 API 新增 desc 字段）
+10. `modelpad-api-openapi-spec` ✅（阶段 1：新增 GET /openapi.json 端点）
 
 ## 依赖关系
 
@@ -87,6 +89,7 @@
 | modelpad-api-start-env-overrides | 阶段 1：启动接口一次性环境变量覆盖 | `StartModelRequest` DTO + `envOverrides` 参数 + API body 解析 + 11 个新契约测试；120 测试全通过（commit `83eeb9c`）。详见 [阶段 1 完成证据](plans/modelpad-api-start-env-overrides.md#阶段-1-完成证据)。 |
 | modelpad-menu-service-list | 阶段 1：菜单栏下拉菜单展示服务列表和状态点 | `MenuBarController` 注入 `AppViewModel`，`menuWillOpen` 触发轻量刷新后读取 models/statusMessages 重建菜单；4 种状态颜色圆点（绿/黄/红/灰）+ 只读服务项 + 分隔线 + 面板/退出；6 个新菜单构建测试 + 全部 126 测试通过。详见 [阶段 1 完成证据](plans/modelpad-menu-service-list.md#阶段-1-完成证据)。 |
 | modelpad-model-desc-field | 阶段 1：数据模型、UI 和 API 新增 desc 字段 | `ModelConfig` 新增 `desc: String?` 字段（`decodeIfPresent` 向后兼容）；`ModelSummary` API 透传 `desc`；`ModelRow` 引擎类型行替换为 `desc`（空时 `-`）；`ModelConfigSheet` 新增描述输入框；构建通过 + 145 测试全通过（2026-07-08）。详见 [阶段 1 完成证据](plans/modelpad-model-desc-field.md#阶段-1-完成证据)。 |
+| modelpad-api-openapi-spec | 阶段 1：新增 GET /openapi.json 端点 | `APIResponse` 新增 `.json(Data)` case；`APIHandler` 新增 `openapiSpec` 静态属性和路由分支，生成完整 OpenAPI 3.1.0 规范覆盖全部 9 个端点；Swift 构建通过（1.41s）；端点返回有效 JSON。详见 [阶段 1 完成证据](plans/modelpad-api-openapi-spec.md#完成证据)。 |
 
 ## 阶段 5 输入
 

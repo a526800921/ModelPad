@@ -188,7 +188,7 @@ VLM 兼容性修复引入了额外变更：
 
 已完成：
 
-- 重新启动真实 `dist/ModelPad.app`，默认 `9786` 端口监听正常。
+- 重新启动真实 `dist/ModelPad.app`，默认 `9999` 端口监听正常。
 - 通过 ModelPad API 启动 `pdf`：
   - `POST /api/models/40621169-461C-4018-974E-9FAC92A542E7/start`
   - 返回 `status=running`，PID 为 `92833`。
